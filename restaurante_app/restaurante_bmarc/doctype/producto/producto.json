@@ -1,0 +1,86 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-04-20 00:51:19.040272",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "nombre",
+  "precio",
+  "categoria",
+  "codigo",
+  "descripcion",
+  "estado",
+  "imagen"
+ ],
+ "fields": [
+  {
+   "fieldname": "nombre",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Nombre del producto"
+  },
+  {
+   "fieldname": "precio",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Precio"
+  },
+  {
+   "fieldname": "categoria",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Categor\u00eda",
+   "options": "Comida\nBebida\nCombo\nExtra"
+  },
+  {
+   "fieldname": "codigo",
+   "fieldtype": "Data",
+   "label": "C\u00f3digo interno"
+  },
+  {
+   "fieldname": "descripcion",
+   "fieldtype": "Small Text",
+   "label": "Descripci\u00f3n"
+  },
+  {
+   "default": "0",
+   "fieldname": "estado",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Activo"
+  },
+  {
+   "fieldname": "imagen",
+   "fieldtype": "Attach Image",
+   "label": "Imagen del producto"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-04-20 00:56:19.381651",
+ "modified_by": "Administrator",
+ "module": "Restaurante BMARC",
+ "name": "Producto",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,77 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-04-20 00:43:53.362196",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "nombre__raz\u00f3n_social",
+  "telefono",
+  "direccion",
+  "tipo_identificacion",
+  "column_break_qmzz",
+  "num_identificacion",
+  "correo"
+ ],
+ "fields": [
+  {
+   "fieldname": "nombre__raz\u00f3n_social",
+   "fieldtype": "Data",
+   "label": "Nombre / Raz\u00f3n Social"
+  },
+  {
+   "fieldname": "telefono",
+   "fieldtype": "Data",
+   "label": "Tel\u00e9fono"
+  },
+  {
+   "fieldname": "direccion",
+   "fieldtype": "Data",
+   "label": "Direcci\u00f3n"
+  },
+  {
+   "fieldname": "tipo_identificacion",
+   "fieldtype": "Select",
+   "label": "Tipo de identificaci\u00f3n",
+   "options": "CEDULA\nRUC"
+  },
+  {
+   "fieldname": "column_break_qmzz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "num_identificacion",
+   "fieldtype": "Data",
+   "label": "N\u00famero de Identificaci\u00f3n"
+  },
+  {
+   "fieldname": "correo",
+   "fieldtype": "Data",
+   "label": "Email"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-04-20 00:50:01.093357",
+ "modified_by": "Administrator",
+ "module": "Restaurante BMARC",
+ "name": "Cliente",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
