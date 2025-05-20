@@ -1,11 +1,13 @@
 {
  "actions": [],
+ "allow_copy": 1,
  "allow_rename": 1,
+ "autoname": "field:num_identificacion",
  "creation": "2025-04-20 00:43:53.362196",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "nombre__raz\u00f3n_social",
+  "nombre",
   "telefono",
   "direccion",
   "tipo_identificacion",
@@ -14,11 +16,6 @@
   "correo"
  ],
  "fields": [
-  {
-   "fieldname": "nombre__raz\u00f3n_social",
-   "fieldtype": "Data",
-   "label": "Nombre / Raz\u00f3n Social"
-  },
   {
    "fieldname": "telefono",
    "fieldtype": "Data",
@@ -42,20 +39,30 @@
   {
    "fieldname": "num_identificacion",
    "fieldtype": "Data",
-   "label": "N\u00famero de Identificaci\u00f3n"
+   "in_list_view": 1,
+   "label": "N\u00famero de Identificaci\u00f3n",
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "correo",
    "fieldtype": "Data",
    "label": "Email"
+  },
+  {
+   "fieldname": "nombre",
+   "fieldtype": "Data",
+   "label": "Nombre / Raz\u00f3n Social"
   }
  ],
+ "hide_toolbar": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-20 00:50:01.093357",
+ "modified": "2025-05-19 00:03:16.907872",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Cliente",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {

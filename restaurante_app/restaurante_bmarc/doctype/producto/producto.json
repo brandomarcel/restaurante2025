@@ -1,17 +1,20 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format:PROD-{####}",
  "creation": "2025-04-20 00:51:19.040272",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "nombre",
-  "precio",
   "categoria",
   "codigo",
   "descripcion",
-  "estado",
-  "imagen"
+  "imagen",
+  "column_break_mdnp",
+  "precio",
+  "tax",
+  "estado"
  ],
  "fields": [
   {
@@ -30,11 +33,11 @@
   },
   {
    "fieldname": "categoria",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Categor\u00eda",
-   "options": "Comida\nBebida\nCombo\nExtra"
+   "options": "categorias"
   },
   {
    "fieldname": "codigo",
@@ -57,14 +60,25 @@
    "fieldname": "imagen",
    "fieldtype": "Attach Image",
    "label": "Imagen del producto"
+  },
+  {
+   "fieldname": "tax",
+   "fieldtype": "Link",
+   "label": "Impuestos",
+   "options": "taxes"
+  },
+  {
+   "fieldname": "column_break_mdnp",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-20 00:56:19.381651",
+ "modified": "2025-05-19 23:51:35.405320",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Producto",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
