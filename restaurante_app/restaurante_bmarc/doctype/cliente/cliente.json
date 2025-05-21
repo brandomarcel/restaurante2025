@@ -58,7 +58,7 @@
  "hide_toolbar": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-19 00:03:16.907872",
+ "modified": "2025-05-20 22:53:17.358612",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Cliente",
@@ -78,7 +78,9 @@
    "write": 1
   }
  ],
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "nombre"
 }

@@ -50,7 +50,7 @@
    "label": "Descripci\u00f3n"
   },
   {
-   "default": "0",
+   "default": "1",
    "fieldname": "estado",
    "fieldtype": "Check",
    "in_list_view": 1,
@@ -74,7 +74,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-19 23:51:35.405320",
+ "modified": "2025-05-21 00:15:00.492012",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Producto",
@@ -94,7 +94,9 @@
    "write": 1
   }
  ],
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "nombre"
 }
