@@ -9,7 +9,8 @@
   "product",
   "qty",
   "rate",
-  "tax"
+  "tax",
+  "total"
  ],
  "fields": [
   {
@@ -18,32 +19,47 @@
    "in_list_view": 1,
    "in_preview": 1,
    "label": "Producto",
-   "options": "Producto"
+   "options": "Producto",
+   "reqd": 1
   },
   {
    "fieldname": "qty",
    "fieldtype": "Int",
+   "in_list_view": 1,
+   "in_preview": 1,
    "label": "Cantidad"
   },
   {
    "fetch_from": "product.precio",
+   "fetch_if_empty": 1,
    "fieldname": "rate",
    "fieldtype": "Currency",
+   "in_list_view": 1,
+   "in_preview": 1,
    "label": "Precio",
    "precision": "2"
   },
   {
    "fetch_from": "product.tax",
+   "fetch_if_empty": 1,
    "fieldname": "tax",
    "fieldtype": "Link",
    "label": "Iva",
    "options": "taxes"
+  },
+  {
+   "fieldname": "total",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Total",
+   "precision": "2"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-05-21 15:58:51.879400",
+ "modified": "2025-05-21 23:15:33.431567",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Items",

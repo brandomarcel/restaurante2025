@@ -1,0 +1,105 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:COMP-{####}",
+ "creation": "2025-05-26 15:12:40.443867",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "businessname",
+  "ruc",
+  "address",
+  "phone",
+  "email",
+  "establishmentcode",
+  "emissionpoint",
+  "invoiceseq",
+  "salenoteseq"
+ ],
+ "fields": [
+  {
+   "fieldname": "businessname",
+   "fieldtype": "Data",
+   "label": "businessname"
+  },
+  {
+   "fieldname": "ruc",
+   "fieldtype": "Data",
+   "label": "ruc"
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Data",
+   "label": "address"
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "phone"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "email"
+  },
+  {
+   "fieldname": "establishmentcode",
+   "fieldtype": "Data",
+   "label": "establishmentcode"
+  },
+  {
+   "fieldname": "emissionpoint",
+   "fieldtype": "Data",
+   "label": "emissionpoint"
+  },
+  {
+   "fieldname": "invoiceseq",
+   "fieldtype": "Data",
+   "label": "invoiceseq"
+  },
+  {
+   "fieldname": "salenoteseq",
+   "fieldtype": "Data",
+   "label": "salenoteseq"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-05-26 16:02:18.291005",
+ "modified_by": "Administrator",
+ "module": "Restaurante BMARC",
+ "name": "Company",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Gerente",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "read_only": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

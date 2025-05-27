@@ -1,11 +1,14 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format:ORD-{#####}",
  "creation": "2025-05-20 22:38:52.013404",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "customer",
+  "email",
+  "items",
   "subtotal",
   "iva",
   "total",
@@ -45,14 +48,27 @@
    "label": "Total",
    "precision": "2",
    "read_only": 1
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Productos",
+   "options": "Items"
+  },
+  {
+   "fetch_from": "customer.correo",
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Correo"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-21 15:43:10.616437",
+ "modified": "2025-05-26 00:11:43.179965",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "orders",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
@@ -64,6 +80,19 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Gerente",
+   "select": 1,
    "share": 1,
    "write": 1
   }

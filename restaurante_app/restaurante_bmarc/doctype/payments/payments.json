@@ -27,7 +27,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-20 23:09:08.695679",
+ "modified": "2025-05-25 23:48:57.601863",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "payments",
@@ -43,6 +43,19 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Gerente",
+   "select": 1,
    "share": 1,
    "write": 1
   }

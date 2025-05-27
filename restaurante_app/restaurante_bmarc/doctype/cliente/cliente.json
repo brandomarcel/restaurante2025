@@ -13,7 +13,8 @@
   "tipo_identificacion",
   "column_break_qmzz",
   "num_identificacion",
-  "correo"
+  "correo",
+  "isactive"
  ],
  "fields": [
   {
@@ -30,7 +31,7 @@
    "fieldname": "tipo_identificacion",
    "fieldtype": "Select",
    "label": "Tipo de identificaci\u00f3n",
-   "options": "CEDULA\nRUC"
+   "options": "06 - Consumidor Final\n04 - C\u00e9dula\n05 - RUC"
   },
   {
    "fieldname": "column_break_qmzz",
@@ -53,12 +54,18 @@
    "fieldname": "nombre",
    "fieldtype": "Data",
    "label": "Nombre / Raz\u00f3n Social"
+  },
+  {
+   "default": "1",
+   "fieldname": "isactive",
+   "fieldtype": "Check",
+   "label": "Activo"
   }
  ],
  "hide_toolbar": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-20 22:53:17.358612",
+ "modified": "2025-05-25 23:21:13.823815",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Cliente",
