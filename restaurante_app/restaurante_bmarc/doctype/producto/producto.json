@@ -14,7 +14,7 @@
   "column_break_mdnp",
   "precio",
   "tax",
-  "estado"
+  "isactive"
  ],
  "fields": [
   {
@@ -50,13 +50,6 @@
    "label": "Descripci\u00f3n"
   },
   {
-   "default": "1",
-   "fieldname": "estado",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Activo"
-  },
-  {
    "fieldname": "imagen",
    "fieldtype": "Attach Image",
    "label": "Imagen del producto"
@@ -70,11 +63,18 @@
   {
    "fieldname": "column_break_mdnp",
    "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "isactive",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Activo"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-21 00:15:00.492012",
+ "modified": "2025-05-27 23:43:38.625862",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Producto",

@@ -4,6 +4,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
+from datetime import datetime
 class orders(Document):
     def before_save(self):
         if self.customer and not frappe.db.exists("Cliente", self.customer):
@@ -181,3 +182,35 @@ def get_all_orders():
         })
 
     return orders_data
+
+@frappe.whitelist()
+def get_dashboard_metrics():
+    
+
+    today = frappe.utils.today()
+
+    orders_today = frappe.get_all("orders", filters={"creation": ["like", f"{today}%"]}, fields=["name", "subtotal", "iva", "total"])
+    
+    total_orders = len(orders_today)
+    total_sales = sum(o.total for o in orders_today)
+    # Productos más vendidos del día
+    product_counts = {}
+
+    for o in orders_today:
+        order_doc = frappe.get_doc("orders", o.name)
+        for item in order_doc.items:
+            if item.product not in product_counts:
+                product_counts[item.product] = {
+                    "name": frappe.get_value("Producto", item.product, "nombre") or item.product,
+                    "count": item.qty
+                }
+            else:
+                product_counts[item.product]["count"] += item.qty
+
+    top_products = sorted(product_counts.values(), key=lambda x: x["count"], reverse=True)[:5]
+
+    return {
+        "total_orders_today": total_orders,
+        "total_sales_today": total_sales,
+        "top_products": top_products
+    }
