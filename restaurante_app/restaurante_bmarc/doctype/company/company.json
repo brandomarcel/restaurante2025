@@ -14,7 +14,9 @@
   "establishmentcode",
   "emissionpoint",
   "invoiceseq",
-  "salenoteseq"
+  "salenoteseq",
+  "urlfirma",
+  "clave"
  ],
  "fields": [
   {
@@ -61,11 +63,21 @@
    "fieldname": "salenoteseq",
    "fieldtype": "Data",
    "label": "salenoteseq"
+  },
+  {
+   "fieldname": "urlfirma",
+   "fieldtype": "Attach",
+   "label": "Firma"
+  },
+  {
+   "fieldname": "clave",
+   "fieldtype": "Password",
+   "label": "Clave"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-26 16:02:18.291005",
+ "modified": "2025-06-09 21:04:28.527801",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Company",
@@ -99,6 +111,7 @@
   }
  ],
  "read_only": 1,
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
