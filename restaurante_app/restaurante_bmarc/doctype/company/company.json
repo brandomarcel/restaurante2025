@@ -13,7 +13,9 @@
   "email",
   "establishmentcode",
   "emissionpoint",
-  "invoiceseq",
+  "invoiceseq_pruebas",
+  "invoiceseq_prod",
+  "ambiente",
   "salenoteseq",
   "urlfirma",
   "clave"
@@ -55,11 +57,6 @@
    "label": "emissionpoint"
   },
   {
-   "fieldname": "invoiceseq",
-   "fieldtype": "Data",
-   "label": "invoiceseq"
-  },
-  {
    "fieldname": "salenoteseq",
    "fieldtype": "Data",
    "label": "salenoteseq"
@@ -73,11 +70,28 @@
    "fieldname": "clave",
    "fieldtype": "Password",
    "label": "Clave"
+  },
+  {
+   "fieldname": "invoiceseq_pruebas",
+   "fieldtype": "Int",
+   "label": "Secuencial Factura Pruebas"
+  },
+  {
+   "fieldname": "invoiceseq_prod",
+   "fieldtype": "Int",
+   "label": "Secuencial Factura Produccion"
+  },
+  {
+   "default": "PRUEBAS",
+   "fieldname": "ambiente",
+   "fieldtype": "Select",
+   "label": "AMBIENTE",
+   "options": "PRUEBAS\nPRODUCCION"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-09 21:04:28.527801",
+ "modified": "2025-06-12 23:07:42.957524",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Company",
