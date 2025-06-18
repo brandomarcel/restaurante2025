@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "businessname",
+  "logo",
   "ruc",
   "address",
   "phone",
@@ -87,11 +88,16 @@
    "fieldtype": "Select",
    "label": "AMBIENTE",
    "options": "PRUEBAS\nPRODUCCION"
+  },
+  {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-12 23:07:42.957524",
+ "modified": "2025-06-17 23:56:37.995118",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Company",
