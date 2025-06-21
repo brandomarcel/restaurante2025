@@ -5,11 +5,19 @@ import frappe
 from frappe.model.document import Document
 from frappe import _
 from datetime import datetime
+from restaurante_app.restaurante_bmarc.api.generate_xml import generar_xml_Factura  # Actualiza ruta según tu código
+from restaurante_app.restaurante_bmarc.api.factura_api import firmar_xml, enviar_a_sri
+
+import xml.etree.ElementTree as ET
+import json
 class orders(Document):
     def before_save(self):
         if self.customer and not frappe.db.exists("Cliente", self.customer):
             frappe.throw(_("El Cliente '{0}' no existe.").format(self.customer))
         self.calculate_totals()
+    
+    def after_insert(self):
+        validar_y_generar_factura(self)    
 
     def calculate_totals(self):
         subtotal = 0.0
@@ -47,6 +55,61 @@ class orders(Document):
     # def validate_items(self):
     #     for item in self.items:
     #         item.validate()  # Esto dispara el validate() del child table (Items)
+
+
+@frappe.whitelist()
+def validar_y_generar_factura(doc):
+    if doc.estado != "Factura":
+        return
+    company_name = frappe.get_all("Company", limit=1, pluck="name")[0]
+    
+    company = frappe.get_doc("Company", company_name)
+    json_payload = generar_xml_Factura(doc.name, company.ruc)
+    resultado = json.loads(json_payload)
+    xml_generado = resultado["xml"]
+
+    # Validar XML
+    xml_tree = ET.fromstring(xml_generado)
+    clave = xml_tree.find(".//claveAcceso").text if xml_tree.find(".//claveAcceso") is not None else ""
+
+    # Guardar XML generado
+    doc.clave_acceso = clave
+    #doc.xml_factura = xml_generado
+
+    try:
+        firmado_resultado = firmar_xml(xml_generado)
+        xml_firmado = firmado_resultado.get("xmlFirmado")
+
+        # doc.xml_firmado = xml_firmado
+        doc.estado_firma = firmado_resultado.get("estado", "firmado")
+        doc.mensaje_firma = firmado_resultado.get("mensaje", "")
+        
+        #Guardar Datos de XML
+        doc.ambiente = xml_tree.find(".//ambiente").text if xml_tree.find(".//ambiente") is not None else ""
+        doc.estab = xml_tree.find(".//estab").text if xml_tree.find(".//estab") is not None else ""
+        doc.ptoemi = xml_tree.find(".//ptoEmi").text if xml_tree.find(".//ptoEmi") is not None else ""
+        doc.secuencial = xml_tree.find(".//secuencial").text if xml_tree.find(".//secuencial") is not None else ""
+        doc.fecha_emision = xml_tree.find(".//fechaEmision").text if xml_tree.find(".//fechaEmision") is not None else ""
+        doc.nombre_cliente = xml_tree.find(".//razonSocialComprador").text if xml_tree.find(".//razonSocialComprador") is not None else ""
+        doc.identificacion_cliente = xml_tree.find(".//identificacionComprador").text if xml_tree.find(".//identificacionComprador") is not None else ""
+        doc.tipo_comprobante = xml_tree.find(".//tipoEmision").text if xml_tree.find(".//tipoEmision") is not None else ""
+
+
+
+        # ✅ Enviar al SRI
+        envio_resultado = enviar_a_sri(xml_firmado)
+        doc.estado_sri = envio_resultado.get("estado", "pendiente")
+        doc.mensaje_sri = envio_resultado.get("mensaje", "")
+
+    except Exception as e:
+        # Permite que la orden se guarde aunque falle firma/envío
+        frappe.log_error(frappe.get_traceback(), "Fallo al firmar o enviar a SRI")
+        doc.estado_firma = "error"
+        doc.estado_sri = "error"
+        doc.mensaje_sri = "No se pudo enviar la factura al SRI."
+
+    doc.save()
+
 
 
 @frappe.whitelist()
@@ -214,3 +277,5 @@ def get_dashboard_metrics():
         "total_sales_today": total_sales,
         "top_products": top_products
     }
+
+
