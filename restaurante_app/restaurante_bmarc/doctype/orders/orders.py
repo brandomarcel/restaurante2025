@@ -5,7 +5,7 @@ import frappe
 from frappe.model.document import Document
 from frappe import _
 from datetime import datetime
-from restaurante_app.restaurante_bmarc.api.generate_xml import generar_xml_Factura  # Actualiza ruta según tu código
+from restaurante_app.restaurante_bmarc.api.generate_xml import generar_xml_Factura 
 from restaurante_app.restaurante_bmarc.api.factura_api import firmar_xml, enviar_a_sri
 
 import xml.etree.ElementTree as ET
@@ -55,7 +55,21 @@ class orders(Document):
     # def validate_items(self):
     #     for item in self.items:
     #         item.validate()  # Esto dispara el validate() del child table (Items)
+    @frappe.whitelist()
+    def get_context(self):
+        company_name = frappe.get_all("Company", limit=1, pluck="name")[0]
+        company = frappe.get_doc("Company", company_name)
 
+        self.company_name = company.businessname
+        self.company_ruc = company.ruc
+        self.company_address = company.address
+        self.company_phone = company.phone
+        self.company_email = company.email
+        self.company_logo = company.logo
+        self.company_contribuyente = company.get("contribuyente_especial") or "N/A"
+        self.company_contabilidad = "SI" if company.get("obligado_a_llevar_contabilidad") else "NO"
+
+        return {"doc": self}
 
 @frappe.whitelist()
 def validar_y_generar_factura(doc):
