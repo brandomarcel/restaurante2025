@@ -5,8 +5,10 @@ import frappe
 from frappe.model.document import Document
 from frappe import _
 from datetime import datetime
-from restaurante_app.restaurante_bmarc.api.generate_xml import generar_xml_Factura  # Actualiza ruta según tu código
-from restaurante_app.restaurante_bmarc.api.factura_api import firmar_xml, enviar_a_sri
+from restaurante_app.restaurante_bmarc.api.generate_xml import generar_xml_Factura 
+from restaurante_app.restaurante_bmarc.api.factura_api import firmar_xml, enviar_a_sri,consultar_autorizacion
+from restaurante_app.restaurante_bmarc.api.sendFactura import enviar_factura
+
 
 import xml.etree.ElementTree as ET
 import json
@@ -55,60 +57,77 @@ class orders(Document):
     # def validate_items(self):
     #     for item in self.items:
     #         item.validate()  # Esto dispara el validate() del child table (Items)
+    @frappe.whitelist()
+    def get_context(self):
+        company_name = frappe.get_all("Company", limit=1, pluck="name")[0]
+        company = frappe.get_doc("Company", company_name)
 
+        self.company_name = company.businessname
+        self.company_ruc = company.ruc
+        self.company_address = company.address
+        self.company_phone = company.phone
+        self.company_email = company.email
+        self.company_logo = company.logo
+        self.company_contribuyente = company.get("contribuyente_especial") or "N/A"
+        self.company_contabilidad = "SI" if company.get("obligado_a_llevar_contabilidad") else "NO"
+
+        return {"doc": self}
 
 @frappe.whitelist()
 def validar_y_generar_factura(doc):
     if doc.estado != "Factura":
         return
+
     company_name = frappe.get_all("Company", limit=1, pluck="name")[0]
-    
     company = frappe.get_doc("Company", company_name)
+
     json_payload = generar_xml_Factura(doc.name, company.ruc)
     resultado = json.loads(json_payload)
     xml_generado = resultado["xml"]
 
-    # Validar XML
+    # Leer valores desde XML generado
     xml_tree = ET.fromstring(xml_generado)
-    clave = xml_tree.find(".//claveAcceso").text if xml_tree.find(".//claveAcceso") is not None else ""
+    doc.clave_acceso = xml_tree.findtext(".//claveAcceso", "")
+    doc.ambiente = xml_tree.findtext(".//ambiente", "")
+    doc.estab = xml_tree.findtext(".//estab", "")
+    doc.ptoemi = xml_tree.findtext(".//ptoEmi", "")
+    doc.secuencial = xml_tree.findtext(".//secuencial", "")
+    doc.fecha_emision = xml_tree.findtext(".//fechaEmision", "")
+    doc.nombre_cliente = xml_tree.findtext(".//razonSocialComprador", "")
+    doc.identificacion_cliente = xml_tree.findtext(".//identificacionComprador", "")
+    doc.tipo_comprobante = xml_tree.findtext(".//tipoEmision", "")
 
-    # Guardar XML generado
-    doc.clave_acceso = clave
-    #doc.xml_factura = xml_generado
+    # Firmar el XML
+    firmado_resultado = firmar_xml(xml_generado)
+    doc.estado_firma = firmado_resultado.get("estado", "firmado")
+    doc.mensaje_firma = firmado_resultado.get("mensaje", "")
+    xml_firmado = firmado_resultado.get("xmlFirmado")
 
-    try:
-        firmado_resultado = firmar_xml(xml_generado)
-        xml_firmado = firmado_resultado.get("xmlFirmado")
+    # Enviar al SRI
+    envio_resultado = enviar_a_sri(xml_firmado,doc.ambiente)
+    doc.estado_sri = envio_resultado.get("estado", "pendiente")
+    doc.mensaje_sri = envio_resultado.get("mensaje", "")
 
-        # doc.xml_firmado = xml_firmado
-        doc.estado_firma = firmado_resultado.get("estado", "firmado")
-        doc.mensaje_firma = firmado_resultado.get("mensaje", "")
-        
-        #Guardar Datos de XML
-        doc.ambiente = xml_tree.find(".//ambiente").text if xml_tree.find(".//ambiente") is not None else ""
-        doc.estab = xml_tree.find(".//estab").text if xml_tree.find(".//estab") is not None else ""
-        doc.ptoemi = xml_tree.find(".//ptoEmi").text if xml_tree.find(".//ptoEmi") is not None else ""
-        doc.secuencial = xml_tree.find(".//secuencial").text if xml_tree.find(".//secuencial") is not None else ""
-        doc.fecha_emision = xml_tree.find(".//fechaEmision").text if xml_tree.find(".//fechaEmision") is not None else ""
-        doc.nombre_cliente = xml_tree.find(".//razonSocialComprador").text if xml_tree.find(".//razonSocialComprador") is not None else ""
-        doc.identificacion_cliente = xml_tree.find(".//identificacionComprador").text if xml_tree.find(".//identificacionComprador") is not None else ""
-        doc.tipo_comprobante = xml_tree.find(".//tipoEmision").text if xml_tree.find(".//tipoEmision") is not None else ""
-
-
-
-        # ✅ Enviar al SRI
-        envio_resultado = enviar_a_sri(xml_firmado)
-        doc.estado_sri = envio_resultado.get("estado", "pendiente")
-        doc.mensaje_sri = envio_resultado.get("mensaje", "")
-
-    except Exception as e:
-        # Permite que la orden se guarde aunque falle firma/envío
-        frappe.log_error(frappe.get_traceback(), "Fallo al firmar o enviar a SRI")
-        doc.estado_firma = "error"
-        doc.estado_sri = "error"
-        doc.mensaje_sri = "No se pudo enviar la factura al SRI."
-
+    # Guardar los cambios
     doc.save()
+
+    # Consultar autorización
+    consulta_resultado = consultar_autorizacion(doc.clave_acceso, doc.name, doc.ambiente)
+    doc.estado_sri = consulta_resultado.get("estado", "")
+    fecha_original = consulta_resultado.get("fecha_autorizacion", "")
+    fecha_formateada = ""
+    if fecha_original:
+        # Parsear ISO 8601 con zona horaria
+        fecha_obj = datetime.fromisoformat(fecha_original)
+        # Formato personalizado: dd/mm/yyyy HH:MM
+        fecha_formateada = fecha_obj.strftime("%d/%m/%Y %H:%M")
+    doc.fecha_autorizacion = fecha_formateada
+    doc.save()
+
+    if doc.estado_sri == "AUTORIZADO":
+        enviar_factura(doc.name)       
+    # Metodo para enviar factura por correo
+    
 
 
 

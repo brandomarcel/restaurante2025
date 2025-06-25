@@ -31,7 +31,8 @@
   "xml_firmado",
   "estado_firma",
   "estado_sri",
-  "mensaje_sri"
+  "mensaje_sri",
+  "fecha_autorizacion"
  ],
  "fields": [
   {
@@ -177,12 +178,18 @@
    "fieldname": "alias",
    "fieldtype": "Data",
    "label": "Alias"
+  },
+  {
+   "default": "Nota Venta",
+   "fieldname": "fecha_autorizacion",
+   "fieldtype": "Data",
+   "label": "Fecha y hora de Autorizacion"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-17 23:44:35.354971",
+ "modified": "2025-06-25 12:15:50.157369",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "orders",
