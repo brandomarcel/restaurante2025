@@ -196,14 +196,26 @@ def get_order_with_details(order_name):
 
 
 @frappe.whitelist()
-def get_all_orders():
+def get_all_orders(limit=10, offset=0):
     if not frappe.has_permission("orders", "read"):
         frappe.throw(_("No tienes permiso para ver órdenes"))
 
+    # Convertir los parámetros a enteros (por seguridad)
+    limit = int(limit)
+    offset = int(offset)
+
     orders_data = []
 
-    # Obtener todas las órdenes (ajusta filtros si lo deseas)
-    orders = frappe.get_all("orders")
+    # Obtener el total de órdenes (para paginación en el frontend)
+    total_orders = frappe.db.count("orders")
+
+    # Obtener órdenes con paginación
+    orders = frappe.get_all(
+    "orders",
+    limit=limit,
+    start=offset,  # ✅ 'start' es la clave correcta
+    order_by="creation desc"
+    )
 
     for o in orders:
         order = frappe.get_doc("orders", o.name)
@@ -252,8 +264,8 @@ def get_all_orders():
         # Agregar todo al array final
         orders_data.append({
             "name": order.name,
-            "status": order.workflow_state if hasattr(order, "workflow_state") else "open",
-            "type": order.type if hasattr(order, "type") else "venta",
+            "type": getattr(order, "estado", "venta"),
+            "estado_sri": getattr(order, "estado_sri", "pendiente"),
             "createdAt": order.creation,
             "subtotal": order.subtotal,
             "iva": order.iva,
@@ -263,7 +275,13 @@ def get_all_orders():
             "payments": payments
         })
 
-    return orders_data
+    # Retornar también total para que el frontend pueda paginar
+    return {
+        "data": orders_data,
+        "total": total_orders,
+        "limit": limit,
+        "offset": offset
+    }
 
 @frappe.whitelist()
 def get_dashboard_metrics():
