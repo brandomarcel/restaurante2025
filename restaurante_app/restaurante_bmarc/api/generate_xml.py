@@ -18,8 +18,8 @@ def generar_xml_Factura(order_name, ruc):
     tipo_emision = "1"
     tipo_comprobante = "01"
     estab = company.establishmentcode
-    pto_emi = company.emissionpoint
-    secuencial = obtener_y_actualizar_secuencial(company.name)
+    pto_emi = company.emissionpoint 
+    secuencial = doc.secuencial if doc.secuencial else obtener_y_actualizar_secuencial(company.name)
     fecha_emision_iso = frappe.utils.today()
     clave_acceso = generar_clave_acceso(
         fecha_emision_iso,

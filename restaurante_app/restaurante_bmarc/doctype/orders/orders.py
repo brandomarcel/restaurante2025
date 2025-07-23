@@ -19,7 +19,7 @@ class orders(Document):
         self.calculate_totals()
     
     def after_insert(self):
-        validar_y_generar_factura(self)    
+        validar_y_generar_factura(self.name)    
 
     def calculate_totals(self):
         subtotal = 0.0
@@ -74,7 +74,9 @@ class orders(Document):
         return {"doc": self}
 
 @frappe.whitelist()
-def validar_y_generar_factura(doc):
+def validar_y_generar_factura(docname):
+    doc = frappe.get_doc("orders", docname)
+    
     if doc.estado != "Factura":
         return
 
