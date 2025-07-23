@@ -36,10 +36,19 @@ def enviar_factura(sales_invoice_name):
 
     # Adjuntar XML (debes asegurarte que ya existe y está subido a File)
     xml_file = frappe.get_doc("File", {"attached_to_doctype": "orders", "attached_to_name": doc.name, "file_name": ["like", "%.xml"]})
+    company_name = frappe.get_all("Company", limit=1, pluck="name")[0]
+    company = frappe.get_doc("Company", company_name)
+    cc_list = []
+    if company.email:
+        cc_list.append(company.email)
+    else:
+        cc_list.append("brandocevallos@gmail.com")
+
 
     # Preparar y enviar el correo
     frappe.sendmail(
         recipients=[doc.email or "brandocevallos@gmail.com"],
+        cc=cc_list,
         subject=f"Factura Electrónica {doc.name}",
         message=mensaje,
         reference_doctype=doc.doctype,

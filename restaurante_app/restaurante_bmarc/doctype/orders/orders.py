@@ -232,6 +232,16 @@ def get_all_orders(limit=10, offset=0):
             "phone": customer_doc.telefono,
             "address": customer_doc.direccion,
         } if customer_doc else {}
+        # SRI
+        sri_info = {
+            "estab": order.estab,
+            "estado_firma": order.estado_firma,
+            "estado_sri": order.estado_sri,
+            "fecha_autorizacion": order.fecha_autorizacion,
+            "fecha_emision": order.fecha_emision,
+            "clave_acceso": order.clave_acceso,
+            "mensaje_sri": order.mensaje_sri
+        }
 
         # Productos
         items = []
@@ -273,6 +283,7 @@ def get_all_orders(limit=10, offset=0):
             "iva": order.iva,
             "total": order.total,
             "customer": customer_info,
+            "sri": sri_info,
             "items": items,
             "payments": payments
         })
