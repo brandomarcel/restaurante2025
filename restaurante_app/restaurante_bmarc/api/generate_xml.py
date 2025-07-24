@@ -48,9 +48,9 @@ def generar_xml_Factura(order_name, ruc):
     ET.SubElement(info_factura, "fechaEmision").text = fecha_emision_formateada
     ET.SubElement(info_factura, "dirEstablecimiento").text = "Latacunga-Ecuador"
     ET.SubElement(info_factura, "obligadoContabilidad").text = "NO"
-    ET.SubElement(info_factura, "tipoIdentificacionComprador").text = "05"
+    ET.SubElement(info_factura, "tipoIdentificacionComprador").text = (customer_doc.tipo_identificacion)[:2]
     ET.SubElement(info_factura, "razonSocialComprador").text = escape(customer_doc.nombre or "CONSUMIDOR FINAL")
-    ET.SubElement(info_factura, "identificacionComprador").text = customer_doc.get("num_identificacion", "9999999999")
+    ET.SubElement(info_factura, "identificacionComprador").text = customer_doc.get("num_identificacion", "9999999999999")
     ET.SubElement(info_factura, "totalSinImpuestos").text = str(doc.subtotal)
     ET.SubElement(info_factura, "totalDescuento").text = "0"
 
