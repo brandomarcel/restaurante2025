@@ -43,8 +43,10 @@ def enviar_factura(sales_invoice_name):
         cc_list.append(company.email)
     else:
         cc_list.append("brandocevallos@gmail.com")
-
-
+        
+    if doc.email == 'sincorreo@gmail.com':
+        doc.email = ''
+    
     # Preparar y enviar el correo
     frappe.sendmail(
         recipients=[doc.email or "brandocevallos@gmail.com"],
