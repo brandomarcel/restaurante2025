@@ -94,7 +94,7 @@ def validar_y_generar_factura(docname):
     doc.estab = xml_tree.findtext(".//estab", "")
     doc.ptoemi = xml_tree.findtext(".//ptoEmi", "")
     doc.secuencial = xml_tree.findtext(".//secuencial", "")
-    # doc.fecha_emision = xml_tree.findtext(".//fechaEmision", "")
+    doc.fecha_emision = xml_tree.findtext(".//fechaEmision", "")
     doc.nombre_cliente = xml_tree.findtext(".//razonSocialComprador", "")
     doc.identificacion_cliente = xml_tree.findtext(".//identificacionComprador", "")
     doc.tipo_comprobante = xml_tree.findtext(".//tipoEmision", "")
