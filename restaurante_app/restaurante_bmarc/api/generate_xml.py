@@ -20,9 +20,17 @@ def generar_xml_Factura(order_name, ruc):
     estab = company.establishmentcode
     pto_emi = company.emissionpoint 
     secuencial = doc.secuencial if doc.secuencial else obtener_y_actualizar_secuencial(company.name)
-    fecha_emision_iso = frappe.utils.today()
+    fechaEmision=''
+   
+    if doc.fecha_emision:
+        fechaEmision = doc.fecha_emision
+    else:
+        fechaEmision = frappe.utils.today()
+        fecha_emision_formateada = "/".join(reversed(fechaEmision.split("-")))
+        fechaEmision = fecha_emision_formateada
+
     clave_acceso = generar_clave_acceso(
-        fecha_emision_iso,
+        fechaEmision,
         tipo_comprobante,
         ruc,
         ambiente,
@@ -44,8 +52,7 @@ def generar_xml_Factura(order_name, ruc):
 
     # === infoFactura ===
     info_factura = ET.SubElement(factura, "infoFactura")
-    fecha_emision_formateada = "/".join(reversed(fecha_emision_iso.split("-")))
-    ET.SubElement(info_factura, "fechaEmision").text = fecha_emision_formateada
+    ET.SubElement(info_factura, "fechaEmision").text = fechaEmision
     ET.SubElement(info_factura, "dirEstablecimiento").text = "Latacunga-Ecuador"
     ET.SubElement(info_factura, "obligadoContabilidad").text = "NO"
     ET.SubElement(info_factura, "tipoIdentificacionComprador").text = (customer_doc.tipo_identificacion)[:2]
@@ -133,7 +140,7 @@ def calcular_digito_verificador(cadena_48):
     return str(verificador)
 
 
-def generar_clave_acceso(fecha_emision, tipo_comprobante, ruc_emisor, tipo_ambiente, codigo_establecimiento_punto, secuencial):
+def generar_clave_acceso(fechaEmision, tipo_comprobante, ruc_emisor, tipo_ambiente, codigo_establecimiento_punto, secuencial):
     """
     Genera la clave de acceso de 49 dígitos para el SRI.
     
@@ -150,9 +157,10 @@ def generar_clave_acceso(fecha_emision, tipo_comprobante, ruc_emisor, tipo_ambie
     """
 
     # Convertir fecha al formato ddmmaaaa
-    fecha_dt = datetime.strptime(str(fecha_emision), '%Y-%m-%d')
-    fecha_formato_sri = fecha_dt.strftime("%d%m%Y")
-
+        
+   
+    fecha_dt = datetime.strptime(fechaEmision, '%d/%m/%Y')
+    fecha_formato_sri = fecha_dt.strftime('%d%m%Y')
     # Generar código numérico aleatorio de 8 dígitos
     codigo_numerico = "".join(random.sample('0123456789', 8))
 
