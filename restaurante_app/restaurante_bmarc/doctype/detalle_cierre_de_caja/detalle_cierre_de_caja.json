@@ -1,0 +1,42 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-07-31 20:46:15.579351",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "metodo_pago",
+  "monto"
+ ],
+ "fields": [
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "metodo_pago",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Metodo de Pago"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "monto",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Monto"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-07-31 22:36:44.702995",
+ "modified_by": "Administrator",
+ "module": "Restaurante BMARC",
+ "name": "Detalle Cierre de Caja",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
