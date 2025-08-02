@@ -1,0 +1,123 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:CIERRCAJA-{####}",
+ "creation": "2025-07-31 20:42:55.892002",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "usuario",
+  "fecha_hora",
+  "efectivo_sistema",
+  "efectivo_real",
+  "diferencia",
+  "observaciones",
+  "estado",
+  "detalle",
+  "apertura",
+  "total_retiros",
+  "monto_apertura"
+ ],
+ "fields": [
+  {
+   "fieldname": "usuario",
+   "fieldtype": "Link",
+   "label": "Usuario",
+   "options": "User"
+  },
+  {
+   "default": "now",
+   "fieldname": "fecha_hora",
+   "fieldtype": "Datetime",
+   "label": "Fecha y Hora"
+  },
+  {
+   "fieldname": "efectivo_sistema",
+   "fieldtype": "Currency",
+   "label": "Efectivo Sistema"
+  },
+  {
+   "fieldname": "efectivo_real",
+   "fieldtype": "Currency",
+   "label": "Efectivo Real"
+  },
+  {
+   "fieldname": "diferencia",
+   "fieldtype": "Currency",
+   "label": "Diferencia"
+  },
+  {
+   "fieldname": "observaciones",
+   "fieldtype": "Small Text",
+   "label": "Observaciones"
+  },
+  {
+   "fieldname": "estado",
+   "fieldtype": "Select",
+   "label": "Estado",
+   "options": "Borrador\nConfirmado"
+  },
+  {
+   "fieldname": "total_retiros",
+   "fieldtype": "Currency",
+   "label": "Total Retiros"
+  },
+  {
+   "fieldname": "monto_apertura",
+   "fieldtype": "Currency",
+   "label": "Monto de Apertura"
+  },
+  {
+   "fieldname": "apertura",
+   "fieldtype": "Link",
+   "label": "Apertura enlace",
+   "options": "Apertura de Caja"
+  },
+  {
+   "fieldname": "detalle",
+   "fieldtype": "Table",
+   "label": "Detalle Cierre de Caja",
+   "options": "Detalle Cierre de Caja"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-01 12:31:17.862324",
+ "modified_by": "Administrator",
+ "module": "Restaurante BMARC",
+ "name": "Cierre de Caja",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Gerente",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

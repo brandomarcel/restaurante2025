@@ -1,0 +1,83 @@
+{
+ "actions": [],
+ "autoname": "format:APCAJA-{####}",
+ "creation": "2025-07-31 22:46:21.313979",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "usuario",
+  "fecha_hora",
+  "monto_apertura",
+  "observacion",
+  "estado"
+ ],
+ "fields": [
+  {
+   "fieldname": "usuario",
+   "fieldtype": "Link",
+   "label": "Usuario",
+   "options": "User"
+  },
+  {
+   "fieldname": "fecha_hora",
+   "fieldtype": "Datetime",
+   "label": "Fecha y Hora"
+  },
+  {
+   "fieldname": "monto_apertura",
+   "fieldtype": "Currency",
+   "label": "Monto de Apertura"
+  },
+  {
+   "fieldname": "observacion",
+   "fieldtype": "Small Text",
+   "label": "Observacion"
+  },
+  {
+   "fieldname": "estado",
+   "fieldtype": "Select",
+   "label": "Estado",
+   "options": "Abierta\nCerrada"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-08-01 11:48:25.940370",
+ "modified_by": "Administrator",
+ "module": "Restaurante BMARC",
+ "name": "Apertura de Caja",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Gerente",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
