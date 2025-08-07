@@ -15,7 +15,8 @@
   "precio",
   "tax",
   "isactive",
-  "is_out_of_stock"
+  "is_out_of_stock",
+  "company_id"
  ],
  "fields": [
   {
@@ -78,11 +79,20 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Agotado"
+  },
+  {
+   "fieldname": "company_id",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Compa\u00f1ia",
+   "options": "Company",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-22 20:35:16.461338",
+ "modified": "2025-08-05 23:37:27.033320",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Producto",

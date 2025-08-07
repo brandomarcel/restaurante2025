@@ -15,6 +15,7 @@
   "iva",
   "total",
   "payments",
+  "company_id",
   "facturacion",
   "clave_acceso",
   "xml_factura",
@@ -189,12 +190,21 @@
    "fieldname": "fecha_autorizacion",
    "fieldtype": "Data",
    "label": "Fecha y hora de Autorizacion"
+  },
+  {
+   "fieldname": "company_id",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Compa\u00f1ia",
+   "options": "Company",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-23 15:34:17.509354",
+ "modified": "2025-08-05 23:37:44.393082",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "orders",

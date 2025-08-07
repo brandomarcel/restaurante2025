@@ -16,7 +16,8 @@
   "detalle",
   "apertura",
   "total_retiros",
-  "monto_apertura"
+  "monto_apertura",
+  "company_id"
  ],
  "fields": [
   {
@@ -78,12 +79,21 @@
    "fieldtype": "Table",
    "label": "Detalle Cierre de Caja",
    "options": "Detalle Cierre de Caja"
+  },
+  {
+   "fieldname": "company_id",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Compa\u00f1ia",
+   "options": "Company",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-01 12:31:17.862324",
+ "modified": "2025-08-05 23:36:41.192787",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Cierre de Caja",

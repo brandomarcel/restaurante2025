@@ -1,33 +1,44 @@
 import frappe
+from frappe import _
 import json
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
 from datetime import datetime
 import random
 
+@frappe.whitelist()
 def generar_xml_Factura(order_name, ruc):
     doc = frappe.get_doc("orders", order_name)
-    customer_doc = frappe.get_doc("Cliente", doc.customer)
-    company = frappe.get_doc("Company", {"ruc": ruc})
 
+    if not doc.customer:
+        frappe.throw(_("La orden no tiene un cliente asignado"))
+
+    customer_doc = frappe.get_doc("Cliente", doc.customer)
+
+    # Obtener compañía por RUC (puedes adaptar a company_id si lo prefieres)
+    company = frappe.get_doc("Company", {"ruc": ruc})
+    if not company:
+        frappe.throw(_("No se encontró la compañía con RUC {0}").format(ruc))
+
+    # Inicializar XML
     factura = ET.Element("factura", attrib={"id": "comprobante", "version": "1.0.0"})
 
     # === infoTributaria ===
     info_tributaria = ET.SubElement(factura, "infoTributaria")
+
     ambiente = obtener_ambiente(company)
-    tipo_emision = "1"
-    tipo_comprobante = "01"
-    estab = company.establishmentcode
-    pto_emi = company.emissionpoint 
-    secuencial = doc.secuencial if doc.secuencial else obtener_y_actualizar_secuencial(company.name)
-    fechaEmision=''
-   
+    tipo_emision = "1"  # Normal
+    tipo_comprobante = "01"  # Factura
+    estab = company.establishmentcode or "001"
+    pto_emi = company.emissionpoint or "001"
+    secuencial = doc.secuencial or obtener_y_actualizar_secuencial(company.name)
+
+    # Fecha de emisión
     if doc.fecha_emision:
         fechaEmision = doc.fecha_emision
     else:
-        fechaEmision = frappe.utils.today()
-        fecha_emision_formateada = "/".join(reversed(fechaEmision.split("-")))
-        fechaEmision = fecha_emision_formateada
+        fecha_hoy = frappe.utils.today()
+        fechaEmision = "/".join(reversed(fecha_hoy.split("-")))
 
     clave_acceso = generar_clave_acceso(
         fechaEmision,
@@ -48,14 +59,14 @@ def generar_xml_Factura(order_name, ruc):
     ET.SubElement(info_tributaria, "estab").text = estab
     ET.SubElement(info_tributaria, "ptoEmi").text = pto_emi
     ET.SubElement(info_tributaria, "secuencial").text = secuencial
-    ET.SubElement(info_tributaria, "dirMatriz").text = company.address
+    ET.SubElement(info_tributaria, "dirMatriz").text = company.address or "Dirección no registrada"
 
     # === infoFactura ===
     info_factura = ET.SubElement(factura, "infoFactura")
     ET.SubElement(info_factura, "fechaEmision").text = fechaEmision
-    ET.SubElement(info_factura, "dirEstablecimiento").text = "Latacunga-Ecuador"
+    ET.SubElement(info_factura, "dirEstablecimiento").text = company.address or "Latacunga-Ecuador"
     ET.SubElement(info_factura, "obligadoContabilidad").text = "NO"
-    ET.SubElement(info_factura, "tipoIdentificacionComprador").text = (customer_doc.tipo_identificacion)[:2]
+    ET.SubElement(info_factura, "tipoIdentificacionComprador").text = (customer_doc.tipo_identificacion or "06")[:2]
     ET.SubElement(info_factura, "razonSocialComprador").text = escape(customer_doc.nombre or "CONSUMIDOR FINAL")
     ET.SubElement(info_factura, "identificacionComprador").text = customer_doc.get("num_identificacion", "9999999999999")
     ET.SubElement(info_factura, "totalSinImpuestos").text = str(doc.subtotal)
@@ -72,6 +83,7 @@ def generar_xml_Factura(order_name, ruc):
     ET.SubElement(info_factura, "importeTotal").text = str(doc.total)
     ET.SubElement(info_factura, "moneda").text = "DOLAR"
 
+    # === pagos ===
     pagos = ET.SubElement(info_factura, "pagos")
     for p in doc.payments:
         pago = ET.SubElement(pagos, "pago")
@@ -81,10 +93,15 @@ def generar_xml_Factura(order_name, ruc):
     # === detalles ===
     detalles = ET.SubElement(factura, "detalles")
     for item in doc.items:
-        item_doc = frappe.get_doc("Producto", item.product)
+        try:
+            item_doc = frappe.get_doc("Producto", item.product)
+            nombre_producto = item_doc.nombre
+        except frappe.DoesNotExistError:
+            nombre_producto = "Producto no encontrado"
+
         detalle = ET.SubElement(detalles, "detalle")
         ET.SubElement(detalle, "codigoPrincipal").text = item.get("codigo", "000")
-        ET.SubElement(detalle, "descripcion").text = escape(item_doc.get("nombre", ""))
+        ET.SubElement(detalle, "descripcion").text = escape(nombre_producto)
         ET.SubElement(detalle, "cantidad").text = str(item.get("qty", 1))
         ET.SubElement(detalle, "precioUnitario").text = str(item.get("rate", 0))
         ET.SubElement(detalle, "descuento").text = "0.00"
@@ -103,15 +120,12 @@ def generar_xml_Factura(order_name, ruc):
     campo_adicional = ET.SubElement(info_adicional, "campoAdicional", nombre="correo")
     campo_adicional.text = doc.email or "correo@ejemplo.com"
 
-    # === Convertir a string XML ===
+    # === Generar XML como string ===
     xml_str = ET.tostring(factura, encoding="unicode")
 
-    # === JSON final ===
-    payload = {
+    return json.dumps({
         "xml": xml_str
-    }
-
-    return json.dumps(payload, indent=2)
+    }, indent=2)
 
 
 
@@ -184,17 +198,27 @@ def generar_clave_acceso(fechaEmision, tipo_comprobante, ruc_emisor, tipo_ambien
 
 def obtener_y_actualizar_secuencial(company_name):
     company = frappe.get_doc("Company", company_name)
-    secuencial_actual = company.invoiceseq_pruebas or 1
-    company.invoiceseq_pruebas = secuencial_actual + 1
+
     if company.ambiente == "PRODUCCION":
         secuencial_actual = company.invoiceseq_prod or 1
         company.invoiceseq_prod = secuencial_actual + 1
-    secuencial_formateado = str(secuencial_actual).zfill(9)  # SRI requiere 9 dígitos
-    company.save(ignore_permissions=True)  # evita errores por permisos
+    else:
+        secuencial_actual = company.invoiceseq_pruebas or 1
+        company.invoiceseq_pruebas = secuencial_actual + 1
+
+    # Formatear como 9 dígitos (ej: 000000001)
+    secuencial_formateado = str(secuencial_actual).zfill(9)
+
+    # Guardar cambios sin importar permisos
+    company.save(ignore_permissions=True)
 
     return secuencial_formateado
 
+
 def obtener_ambiente(company):
-    if company.ambiente == "PRODUCCION":
-        return "2"
-    return "1"
+    """
+    Devuelve el código del ambiente SRI:
+    - "1" para pruebas
+    - "2" para producción
+    """
+    return "2" if company.ambiente == "PRODUCCION" else "1"
