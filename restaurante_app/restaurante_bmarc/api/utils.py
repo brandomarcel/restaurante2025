@@ -46,3 +46,9 @@ def get_usuarios_con_roles(usuario=None, rol=None):
             usuarios[uid]["roles"].append(row.role)
 
     return list(usuarios.values())
+
+@frappe.whitelist()
+def get_company_list():
+    """Devuelve lista de nombres de Company para llenar el filtro Select."""
+    companies = frappe.get_all("Company", pluck="name", order_by="name")
+    return companies

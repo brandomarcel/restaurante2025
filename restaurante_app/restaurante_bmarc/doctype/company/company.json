@@ -73,11 +73,13 @@
    "label": "Clave"
   },
   {
+   "default": "0",
    "fieldname": "invoiceseq_pruebas",
    "fieldtype": "Int",
    "label": "Secuencial Factura Pruebas"
   },
   {
+   "default": "0",
    "fieldname": "invoiceseq_prod",
    "fieldtype": "Int",
    "label": "Secuencial Factura Produccion"
@@ -97,7 +99,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-05 23:27:01.368477",
+ "modified": "2025-08-12 23:17:33.484768",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Company",

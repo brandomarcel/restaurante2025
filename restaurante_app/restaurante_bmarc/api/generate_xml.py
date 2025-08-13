@@ -100,7 +100,7 @@ def generar_xml_Factura(order_name, ruc):
             nombre_producto = "Producto no encontrado"
 
         detalle = ET.SubElement(detalles, "detalle")
-        ET.SubElement(detalle, "codigoPrincipal").text = item.get("codigo", "000")
+        ET.SubElement(detalle, "codigoPrincipal").text = item.get("product", "000")
         ET.SubElement(detalle, "descripcion").text = escape(nombre_producto)
         ET.SubElement(detalle, "cantidad").text = str(item.get("qty", 1))
         ET.SubElement(detalle, "precioUnitario").text = str(item.get("rate", 0))

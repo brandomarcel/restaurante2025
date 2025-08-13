@@ -59,14 +59,30 @@ class orders(Document):
     #         item.validate()  # Esto dispara el validate() del child table (Items)
 
 
+    @frappe.whitelist()
+    def get_context(self):
+        company_name = frappe.get_all("Company", limit=1, pluck="name")[0]
+        company = frappe.get_doc("Company", self.company_id)
+
+        self.company_name = company.businessname
+        self.company_ruc = company.ruc
+        self.company_address = company.address
+        self.company_phone = company.phone
+        self.company_email = company.email
+        self.company_logo = company.logo
+        self.company_contribuyente = company.get("contribuyente_especial") or "N/A"
+        self.company_contabilidad = "SI" if company.get("obligado_a_llevar_contabilidad") else "NO"
+
+        return {"doc": self}
+
 @frappe.whitelist()
 def validar_y_generar_factura(docname):
     doc = frappe.get_doc("orders", docname)
 
     # Validar acceso a la compañía
-    user_company = get_user_company()
-    if doc.company_id != user_company:
-        frappe.throw(_("No tienes permiso para generar factura para esta orden"))
+    # user_company = get_user_company()
+    # if doc.company_id != user_company:
+    #     frappe.throw(_("No tienes permiso para generar factura para esta orden"))
 
     # Solo continuar si la orden está en estado "Factura"
     if doc.estado != "Factura":
@@ -105,8 +121,8 @@ def validar_y_generar_factura(docname):
         if not xml_firmado:
             frappe.throw(_("El XML no se pudo firmar correctamente"))
 
-        doc.xml_factura = xml_generado
-        doc.xml_firmado = xml_firmado
+        # doc.xml_factura = xml_generado
+        # doc.xml_firmado = xml_firmado
 
         # 4. Enviar al SRI
         envio_resultado = enviar_a_sri(xml_firmado, doc.ambiente)

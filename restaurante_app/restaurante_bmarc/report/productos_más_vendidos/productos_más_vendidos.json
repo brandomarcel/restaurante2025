@@ -10,7 +10,7 @@
  "idx": 0,
  "is_standard": "Yes",
  "letterhead": null,
- "modified": "2025-06-05 22:53:11.349244",
+ "modified": "2025-08-12 20:07:23.457847",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Productos M\u00e1s Vendidos",
@@ -25,6 +25,9 @@
   },
   {
    "role": "Gerente"
+  },
+  {
+   "role": "Cajero"
   }
  ],
  "timeout": 0

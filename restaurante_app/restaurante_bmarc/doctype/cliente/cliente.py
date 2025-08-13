@@ -12,8 +12,6 @@ class Cliente(Document):
 	pass
 @frappe.whitelist()
 def get_clientes():
-    user = frappe.session.user
-
     # Obtener la compañía por default o por permiso
     company = get_user_company()
 
@@ -116,10 +114,25 @@ def update_cliente(**kwargs):
         "cliente": cliente.name
     }
 @frappe.whitelist()
-def get_cliente_by_id(name):
+def get_cliente_by_identificacion(num_identificacion):
     company = get_user_company()
+
+    # Buscar el cliente por número de identificación
+    cliente_id = frappe.get_value(
+    "Cliente",
+    {
+        "num_identificacion": num_identificacion,
+        "company_id": company
+    },
+    "name"
+)
+
+
+    if not cliente_id:
+        frappe.throw(_("Cliente no encontrado"))
+
     # Obtener el cliente
-    cliente = frappe.get_doc("Cliente", name)
+    cliente = frappe.get_doc("Cliente", cliente_id)
 
     # Validar que el cliente pertenezca a la misma compañía
     if cliente.company_id != company:
@@ -137,3 +150,4 @@ def get_cliente_by_id(name):
         "isactive": cliente.isactive,
         "company_id": cliente.company_id
     }
+

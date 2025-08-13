@@ -44,6 +44,7 @@
   {
    "fieldname": "company_id",
    "fieldtype": "Link",
+   "in_filter": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Compa\u00f1ia",
@@ -54,7 +55,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-05 23:36:49.927354",
+ "modified": "2025-08-07 17:11:38.297846",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Retiro de Caja",

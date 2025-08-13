@@ -46,7 +46,7 @@ def enviar_factura(sales_invoice_name):
         frappe.throw(_("No se encontró el archivo XML de la factura adjunto al documento."))
 
     # Validar correo del cliente
-    destinatario = doc.email if doc.email and doc.email != "sincorreo@gmail.com" else "brandocevallos@gmail.com"
+    destinatario = doc.email if doc.email and doc.email != "sincorreo@gmail.com" else ""
 
     # Enviar copia a correo de la empresa si está configurado
     cc_list = [company.email] if company.email else []

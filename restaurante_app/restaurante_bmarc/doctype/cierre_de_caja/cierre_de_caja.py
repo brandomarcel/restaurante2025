@@ -1,7 +1,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe.utils import now_datetime
-
+from restaurante_app.restaurante_bmarc.api.user import get_user_company
 
 class CierredeCaja(Document):
     def before_save(self):
@@ -24,6 +24,8 @@ class CierredeCaja(Document):
 
 @frappe.whitelist()
 def calcular_datos_para_cierre(usuario, desde=None, hasta=None):
+    company = get_user_company()
+
     """
     Calcula datos clave para cierre de caja:
     - busca apertura activa
@@ -34,7 +36,8 @@ def calcular_datos_para_cierre(usuario, desde=None, hasta=None):
     # Obtener apertura activa
     apertura = frappe.get_all("Apertura de Caja", filters={
         "usuario": usuario,
-        "estado": "Abierta"
+        "estado": "Abierta",
+        "company_id": company
     }, limit=1)
 
     if not apertura:

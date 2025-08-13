@@ -22,6 +22,18 @@ def get_empresa():
 def get_user_roles_and_doctype_permissions(email=None):
     if not email:
         email = frappe.session.user
+    user_doc = frappe.get_doc("User", email)
+    user_data = {
+        "email": user_doc.name,
+        "full_name": user_doc.full_name,
+        "first_name": user_doc.first_name,
+        "last_name": user_doc.last_name,
+        "username": user_doc.username,
+        "enabled": user_doc.enabled,
+        "user_image": user_doc.user_image,
+        "language": user_doc.language
+    }
+
 
     # 1. Roles
     roles = frappe.get_all(
@@ -83,6 +95,7 @@ def get_user_roles_and_doctype_permissions(email=None):
 
     return {
         "user": email,
+        "user_data": user_data,
         "roles": role_names,
         "doctypes": list(doctypes.values()),
         "user_permissions": user_permissions

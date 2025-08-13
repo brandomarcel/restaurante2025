@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:IVA-{value}",
+ "autoname": "format:IVA-{company_id}-{value}",
  "creation": "2025-05-19 23:21:56.070072",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -37,7 +37,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-05 23:37:12.975554",
+ "modified": "2025-08-07 15:50:49.943840",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "taxes",
