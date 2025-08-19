@@ -8,7 +8,8 @@
  "field_order": [
   "impuesto_section",
   "value",
-  "company_id"
+  "company_id",
+  "is_active"
  ],
  "fields": [
   {
@@ -32,12 +33,18 @@
    "label": "Compa\u00f1ia",
    "options": "Company",
    "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Activo"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-07 15:50:49.943840",
+ "modified": "2025-08-14 23:11:48.801008",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "taxes",

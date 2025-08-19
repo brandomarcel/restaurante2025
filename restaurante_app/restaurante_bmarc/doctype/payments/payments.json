@@ -8,8 +8,7 @@
  "field_order": [
   "nombre",
   "description",
-  "codigo",
-  "company_id"
+  "codigo"
  ],
  "fields": [
   {
@@ -30,21 +29,12 @@
    "fieldname": "description",
    "fieldtype": "Data",
    "label": "Descripci\u00f3n"
-  },
-  {
-   "fieldname": "company_id",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Compa\u00f1ia",
-   "options": "Company",
-   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-05 23:37:20.127164",
+ "modified": "2025-08-15 12:30:26.528188",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "payments",

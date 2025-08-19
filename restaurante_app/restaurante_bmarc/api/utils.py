@@ -52,3 +52,22 @@ def get_company_list():
     """Devuelve lista de nombres de Company para llenar el filtro Select."""
     companies = frappe.get_all("Company", pluck="name", order_by="name")
     return companies
+
+
+@frappe.whitelist()
+def meta_has_field(doctype: str, fieldname: str) -> bool:
+    meta = frappe.get_meta(doctype)
+    try:
+        if hasattr(meta, "has_field") and meta.has_field(fieldname):
+            return True
+        return any(getattr(df, "fieldname", None) == fieldname for df in (getattr(meta, "fields", []) or []))
+    except Exception:
+        return False
+@frappe.whitelist()
+def normalize_datetime_param(value: str | None, *, end: bool = False) -> str | None:
+    if not value:
+        return None
+    v = str(value).strip()
+    if " " not in v:
+        v += " 23:59:59" if end else " 00:00:00"
+    return v

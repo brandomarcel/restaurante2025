@@ -16,10 +16,17 @@
   "emissionpoint",
   "invoiceseq_pruebas",
   "invoiceseq_prod",
+  "ncseq_prod",
+  "ncseq_pruebas",
   "ambiente",
   "salenoteseq",
   "urlfirma",
-  "clave"
+  "clave",
+  "tab_2_tab",
+  "firma_section",
+  "firma_valida_desde",
+  "firma_valida_hasta",
+  "firma_dias_restantes"
  ],
  "fields": [
   {
@@ -95,11 +102,48 @@
    "fieldname": "logo",
    "fieldtype": "Attach Image",
    "label": "Logo"
+  },
+  {
+   "default": "0",
+   "fieldname": "ncseq_prod",
+   "fieldtype": "Int",
+   "label": "Secuencial Nota Credito Produccion"
+  },
+  {
+   "default": "0",
+   "fieldname": "ncseq_pruebas",
+   "fieldtype": "Int",
+   "label": "Secuencial Nota Credito Pruebas"
+  },
+  {
+   "fieldname": "tab_2_tab",
+   "fieldtype": "Tab Break",
+   "label": "Tab 2"
+  },
+  {
+   "fieldname": "firma_valida_desde",
+   "fieldtype": "Date",
+   "label": "firma_valida_desde "
+  },
+  {
+   "fieldname": "firma_valida_hasta",
+   "fieldtype": "Date",
+   "label": "firma_valida_hasta "
+  },
+  {
+   "fieldname": "firma_dias_restantes",
+   "fieldtype": "Int",
+   "label": "firma_dias_restantes "
+  },
+  {
+   "fieldname": "firma_section",
+   "fieldtype": "Section Break",
+   "label": "FIRMA"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-12 23:17:33.484768",
+ "modified": "2025-08-15 15:31:01.521315",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Company",

@@ -12,26 +12,32 @@ class Producto(Document):
 
 @frappe.whitelist()
 def get_productos():
-    # Obtener la compañía asignada al usuario (via User Permission o default)
     company = get_user_company()
-    # Traer productos filtrados por compañía y activos
-    productos = frappe.get_all(
-        "Producto",
-        filters={
-            "company_id": company,
-            "isactive": 1
-        },
-        fields=[
-            "name", "nombre", "precio", "categoria", "codigo",
-            "descripcion", "imagen", "tax", "isactive",
-            "is_out_of_stock", "company_id"
-        ],
-        order_by="modified DESC"
-    )
 
-    return {
-        "data": productos
-    }
+    data = frappe.db.sql("""
+        SELECT 
+            p.name,
+            p.nombre,
+            p.precio,
+            p.categoria,
+            p.codigo,
+            p.descripcion,
+            p.imagen,
+            p.tax,                      -- referencia guardada en Producto
+            p.isactive,
+            p.is_out_of_stock,
+            p.company_id,
+            t.name  AS tax_id,          -- "nombre amigable" mínimo: el ID del impuesto
+            CAST(t.value AS DECIMAL(10,4)) AS tax_value  -- valor numérico del impuesto
+        FROM `tabProducto` p
+        LEFT JOIN `tabtaxes` t ON p.tax = t.name
+        WHERE p.company_id = %s
+          AND p.isactive = 1
+        ORDER BY p.modified DESC
+    """, company, as_dict=True)
+
+    return {"data": data}
+
 @frappe.whitelist()
 def create_producto(**kwargs):
     data = frappe.local.form_dict

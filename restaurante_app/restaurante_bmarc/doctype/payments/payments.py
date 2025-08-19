@@ -14,12 +14,9 @@ class payments(Document):
 
 @frappe.whitelist()
 def get_payments():
-    company = get_user_company()
-
     payments = frappe.get_all(
         "payments",
-        filters={"company_id": company},
-        fields=["name", "nombre", "codigo", "description", "company_id"],
+        fields=["name", "nombre", "codigo", "description"],
         order_by="modified DESC"
     )
 

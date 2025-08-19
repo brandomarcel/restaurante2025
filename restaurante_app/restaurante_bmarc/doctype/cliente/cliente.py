@@ -55,7 +55,7 @@ def create_cliente(**kwargs):
     cliente.insert()
     frappe.db.commit()
 
-    return {"message": "Cliente creado exitosamente", "name": cliente.name}
+    return {"message": "Cliente creado exitosamente", "data": cliente}
 
 
 
