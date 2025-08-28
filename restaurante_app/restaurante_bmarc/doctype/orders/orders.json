@@ -10,6 +10,7 @@
   "customer",
   "alias",
   "email",
+  "estado",
   "items",
   "subtotal",
   "iva",
@@ -17,6 +18,7 @@
   "payments",
   "company_id",
   "facturacion",
+  "sales_invoice",
   "clave_acceso",
   "xml_factura",
   "fecha_emision",
@@ -28,7 +30,6 @@
   "nombre_cliente",
   "identificacion_cliente",
   "column_break_fobp",
-  "estado",
   "xml_firmado",
   "estado_firma",
   "estado_sri",
@@ -140,11 +141,12 @@
   {
    "default": "Nota Venta",
    "fieldname": "estado",
-   "fieldtype": "Data",
+   "fieldtype": "Select",
    "in_filter": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Estado"
+   "label": "Estado",
+   "options": "Nota Venta\nFactura"
   },
   {
    "fieldname": "xml_firmado",
@@ -200,12 +202,18 @@
    "label": "Compa\u00f1ia",
    "options": "Company",
    "reqd": 1
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "sales_invoice",
+   "options": "Sales Invoice"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-07 13:27:41.785854",
+ "modified": "2025-08-19 16:17:31.243738",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "orders",

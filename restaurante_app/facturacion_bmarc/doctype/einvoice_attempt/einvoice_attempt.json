@@ -1,0 +1,72 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-08-19 14:03:54.143988",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "attempt_no",
+  "sent_at",
+  "status",
+  "response_code",
+  "response_message",
+  "xml_signed_file"
+ ],
+ "fields": [
+  {
+   "fieldname": "attempt_no",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Intento #"
+  },
+  {
+   "fieldname": "sent_at",
+   "fieldtype": "Datetime",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "label": "Fecha Env\u00edo"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Estado",
+   "options": "Queued\nSubmitted\nAuthorized\nRejected\nError"
+  },
+  {
+   "fieldname": "response_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "C\u00f3digo Respuesta"
+  },
+  {
+   "fieldname": "response_message",
+   "fieldtype": "Long Text",
+   "label": "Mensaje Respuesta"
+  },
+  {
+   "fieldname": "xml_signed_file",
+   "fieldtype": "Link",
+   "label": "XML Firmado (File)",
+   "options": "File"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-08-19 14:37:30.338487",
+ "modified_by": "Administrator",
+ "module": "Facturacion BMARC",
+ "name": "EInvoice Attempt",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

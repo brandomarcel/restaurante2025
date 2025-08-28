@@ -10,7 +10,8 @@
   "qty",
   "rate",
   "tax",
-  "total"
+  "total",
+  "tax_rate"
  ],
  "fields": [
   {
@@ -54,17 +55,24 @@
    "in_preview": 1,
    "label": "Total",
    "precision": "2"
+  },
+  {
+   "fieldname": "tax_rate",
+   "fieldtype": "Float",
+   "label": "Valor IVA"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-05-21 23:15:33.431567",
+ "modified": "2025-08-25 14:32:40.026090",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Items",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

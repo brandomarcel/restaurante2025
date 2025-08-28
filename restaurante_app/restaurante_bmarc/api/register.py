@@ -7,6 +7,7 @@ from frappe.utils.password import update_password
 from frappe.utils.file_manager import save_file
 from restaurante_app.restaurante_bmarc.api.user import get_user_company
 
+
 ROLE_MAP = {
     # rol de negocio -> Role Profile + etiqueta de rol visible (opcional)
     "gerente": {
@@ -399,8 +400,8 @@ def create_company_user(
         frappe.throw(_("role_key debe ser 'cajero' o 'gerente'."))
 
     # Regla opcional: si el usuario actual no es System Manager, no puede crear Gerentes
-    # if "System Manager" not in set(frappe.get_roles(frappe.session.user)) and role_key_norm == "gerente":
-    #     frappe.throw(_("No tienes permisos para crear usuarios con rol Gerente."))
+    if "System Manager" not in set(frappe.get_roles(frappe.session.user)) and role_key_norm == "gerente":
+        frappe.throw(_("No tienes permisos para crear usuarios con rol Gerente."))
 
     # --- Resolver Company ---
     # Si no llegó por params, úsala desde la sesión; si llegó y no eres SysMan, valida que coincida con tu company

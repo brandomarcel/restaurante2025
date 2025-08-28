@@ -24,9 +24,9 @@
   "clave",
   "tab_2_tab",
   "firma_section",
-  "firma_valida_desde",
-  "firma_valida_hasta",
-  "firma_dias_restantes"
+  "cert_not_before",
+  "cert_not_after",
+  "cert_common_name"
  ],
  "fields": [
   {
@@ -76,7 +76,7 @@
   },
   {
    "fieldname": "clave",
-   "fieldtype": "Password",
+   "fieldtype": "Data",
    "label": "Clave"
   },
   {
@@ -118,32 +118,32 @@
   {
    "fieldname": "tab_2_tab",
    "fieldtype": "Tab Break",
-   "label": "Tab 2"
-  },
-  {
-   "fieldname": "firma_valida_desde",
-   "fieldtype": "Date",
-   "label": "firma_valida_desde "
-  },
-  {
-   "fieldname": "firma_valida_hasta",
-   "fieldtype": "Date",
-   "label": "firma_valida_hasta "
-  },
-  {
-   "fieldname": "firma_dias_restantes",
-   "fieldtype": "Int",
-   "label": "firma_dias_restantes "
+   "label": "Firma"
   },
   {
    "fieldname": "firma_section",
    "fieldtype": "Section Break",
    "label": "FIRMA"
+  },
+  {
+   "fieldname": "cert_common_name",
+   "fieldtype": "Data",
+   "label": "Emitido a nombre de"
+  },
+  {
+   "fieldname": "cert_not_before",
+   "fieldtype": "Data",
+   "label": "cert_not_before"
+  },
+  {
+   "fieldname": "cert_not_after",
+   "fieldtype": "Data",
+   "label": "cert_not_after"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-15 15:31:01.521315",
+ "modified": "2025-08-26 11:51:16.911811",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Company",

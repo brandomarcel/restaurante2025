@@ -5,7 +5,7 @@ from frappe import _
 from frappe.utils.file_manager import save_file
 from frappe.utils import get_url as _abs_url
 from restaurante_app.restaurante_bmarc.api.user import get_user_company
-
+from restaurante_app.facturacion_bmarc.einvoice.utils import _parse_fecha_autorizacion
 # crypto para leer p12 (si está disponible)
 try:
     from cryptography.hazmat.primitives.serialization.pkcs12 import load_key_and_certificates
@@ -166,6 +166,7 @@ def firmar_xml(xml_string: str, company: str | None = None):
     """Firma el XML usando la firma/clave de la Company. Devuelve siempre `errors`."""
     errors: list[dict] = []
     try:
+        
         ctx = _get_company_context(company)
 
         if "/private/" in ctx["urlfirma_raw"] and not SIGN_SERVICE_ACCEPTS_BASE64:
@@ -236,7 +237,7 @@ def enviar_a_sri(xml_firmado: str, ambiente: str | None = None, company: str | N
         _err(errors, "SRI_SEND_EXCEPTION", str(e), details=frappe.get_traceback(), log_title="SRI - excepción")
         return {"estado": "ERROR", "tipo": "ERROR", "mensaje": str(e), "errors": errors}
 
-
+@frappe.whitelist()
 def consultar_autorizacion(clave_acceso: str, docname: str, ambiente: str | None = None, company: str | None = None):
     """Consulta la autorización y guarda el comprobante. Devuelve siempre `errors`."""
     errors: list[dict] = []
@@ -255,7 +256,7 @@ def consultar_autorizacion(clave_acceso: str, docname: str, ambiente: str | None
         if autorizacion_node is None:
             msg = "No se encontró el nodo <autorizacion>"
             _err(errors, "NO_AUTH_NODE", msg, log_title="SRI - estructura inválida")
-            return {"estado": "NO_AUTORIZACION", "tipo": "ERROR", "mensaje": msg, "errors": errors}
+            return {"estado": "ERROR", "tipo": "ERROR", "mensaje": msg, "errors": errors}
 
         estado = (autorizacion_node.findtext("estado") or "").strip()
         numero_autorizacion = (autorizacion_node.findtext("numeroAutorizacion") or "").strip()
@@ -285,7 +286,8 @@ def consultar_autorizacion(clave_acceso: str, docname: str, ambiente: str | None
             "mensaje": "Comprobante autorizado y guardado" if estado.upper() == "AUTORIZADO" else "Comprobante procesado",
             "clave_acceso": clave_acceso,
             "numero_autorizacion": numero_autorizacion,
-            "fecha_autorizacion": fecha_autorizacion,
+            "fecha_autorizacion": _parse_fecha_autorizacion(fecha_autorizacion),
+            #  "fecha_autorizacion": fecha_autorizacion,
             "ambiente": ambiente_resp or ambiente_final,
             "file_url": saved_file.file_url,
             "errors": errors
