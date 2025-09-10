@@ -77,7 +77,7 @@ def enviar_factura_sales_invoice(invoice_name: str):
     frappe.sendmail(
         recipients=recipients,
         cc=cc_list,
-        subject=f"Factura Electrónica {inv.name}",
+        subject=f"Factura Electrónica",
         message=mensaje,
         reference_doctype="Sales Invoice",
         reference_name=inv.name,

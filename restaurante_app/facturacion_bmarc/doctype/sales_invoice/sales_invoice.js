@@ -152,3 +152,44 @@ console.log('Sales Invoice - Refresh',status);
 });
 
 
+
+
+// Desde JavaScript en Frappe
+// frappe.call({
+//     method: 'restaurante_app.facturacion_bmarc.einvoice.edocs.consultar_estado_factura',
+//     args: {
+//         access_key: '2402201501179000000100120010010000000123456789012'
+//     },
+//     callback: function(response) {
+//         console.log('Estado de la factura:', response);
+//     }
+// });
+
+// En el formulario de Electronic Invoice
+// frappe.ui.form.on('Electronic Invoice', {
+//     refresh: function(frm) {
+//         if (frm.doc.access_key) {
+//             frm.add_custom_button(__('Consultar Estado SRI'), function() {
+//                 frappe.call({
+//                     method: 'restaurante_app.facturacion_bmarc.einvoice.edocs.consultar_estado_factura',
+//                     args: { access_key: frm.doc.access_key },
+//                     callback: function(response) {
+//                         if (response.message) {
+//                             frappe.msgprint(`
+//                                 Estado: ${response.message.status}<br>
+//                                 Número de autorización: ${response.message.authorization?.number || 'N/A'}<br>
+//                                 Fecha: ${response.message.authorization?.date || 'N/A'}
+//                             `);
+                            
+//                             // Actualizar el documento si es necesario
+//                             if (response.message.status !== frm.doc.status) {
+//                                 frm.set_value('status', response.message.status);
+//                                 frm.save();
+//                             }
+//                         }
+//                     }
+//                 });
+//             });
+//         }
+//     }
+// });
