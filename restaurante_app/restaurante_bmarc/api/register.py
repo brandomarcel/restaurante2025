@@ -6,6 +6,7 @@ from frappe import _
 from frappe.utils.password import update_password
 from frappe.utils.file_manager import save_file
 from restaurante_app.restaurante_bmarc.api.user import get_user_company
+from frappe.utils import cint
 
 
 ROLE_MAP = {
@@ -382,7 +383,8 @@ def create_company_user(
     add_permission: int = 1,      # crea User Permission a la empresa
     send_welcome_email: int = 0,  # opcional
 ):
-    """Crea/actualiza un Usuario, lo ata a una Company (por sesión/param) y le asigna rol vía Role Profile."""
+    """Crea/actualiza un Usuario, lo ata a una Company y le asigna rol vía Role Profile."""
+
     frappe.only_for(("System Manager", "Gerente"))
 
     data = frappe.parse_json(user_json or "{}")
@@ -391,6 +393,7 @@ def create_company_user(
     first = (data.get("first_name") or "").strip() or email
     last  = (data.get("last_name") or "").strip()
     phone = str(data.get("phone") or "").strip()
+    enabled_val = 1 if cint(data.get("enabled", 1)) else 0   # <- FIX: usar cint
 
     if not email:
         frappe.throw(_("Email es requerido."))
@@ -399,13 +402,12 @@ def create_company_user(
     if role_key_norm not in ROLE_MAP:
         frappe.throw(_("role_key debe ser 'cajero' o 'gerente'."))
 
-    # Regla opcional: si el usuario actual no es System Manager, no puede crear Gerentes
+    # Si no eres SysMan, no puedes crear Gerentes
     if "System Manager" not in set(frappe.get_roles(frappe.session.user)) and role_key_norm == "gerente":
         frappe.throw(_("No tienes permisos para crear usuarios con rol Gerente."))
 
     # --- Resolver Company ---
-    # Si no llegó por params, úsala desde la sesión; si llegó y no eres SysMan, valida que coincida con tu company
-    session_company_name = get_user_company()  # puede lanzar si no encuentra
+    session_company_name = get_user_company()
     if company or company_ruc:
         comp_doc = _get_company_by_id_or_ruc(company, company_ruc)
         if "System Manager" not in set(frappe.get_roles(frappe.session.user)):
@@ -414,7 +416,6 @@ def create_company_user(
     else:
         comp_doc = frappe.get_doc("Company", session_company_name)
 
-    # --- Roles desde Profile + whitelist ---
     target_profile = ROLE_MAP[role_key_norm]["role_profile"]
     roles_from_profile = _roles_from_profile(target_profile)
     allowed = _allowed_roles_whitelist()
@@ -424,8 +425,35 @@ def create_company_user(
     if forced_label and forced_label in allowed and forced_label not in roles_from_profile:
         roles_final.append({"role": forced_label})
 
-    # --- Crear/Actualizar User ---
     creating = not frappe.db.exists("User", email)
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # CAMINO 1: si SOLO quieren togglear enabled (evita choques con Notification Settings)
+    # ─────────────────────────────────────────────────────────────────────────────
+    # Con esto te saltas la validación pesada y el permiso sobre Notification Settings.
+    just_toggle_enabled = (not creating) and set(data.keys()) <= {"email", "enabled"}
+    if just_toggle_enabled:
+        frappe.db.set_value("User", email, "enabled", enabled_val, update_modified=True)
+        # if enabled_val == 0:
+        #     try:
+        #         logout_all_sessions(user=email)
+        #     except Exception:
+        #         pass
+        frappe.db.commit()
+        return {
+            "ok": True,
+            "user": email,
+            "company": comp_doc.name,
+            "role_profile": target_profile,
+            "roles_assigned": [r["role"] for r in roles_final],
+            "created": False,
+            "enabled": enabled_val,
+            "fast_path": True,
+        }
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # CAMINO 2: creación/actualización completa
+    # ─────────────────────────────────────────────────────────────────────────────
     if creating and not pwd:
         frappe.throw(_("La contraseña es requerida."))
 
@@ -438,12 +466,11 @@ def create_company_user(
             "phone": phone,
             "user_type": "System User",
             "send_welcome_email": int(send_welcome_email or 0),
-            "enabled": 1,
+            "enabled": enabled_val,
             "role_profile_name": target_profile,
             "roles": roles_final,
         }).insert(ignore_permissions=True)
-        # contraseña obligatoria al crear
-        update_password(user_doc.name, pwd)
+        update_password(user_doc.name, pwd)  # obligatoria al crear
     else:
         user_doc = frappe.get_doc("User", email)
         user_doc.update({
@@ -452,16 +479,15 @@ def create_company_user(
             "phone": phone,
             "user_type": "System User",
             "send_welcome_email": int(send_welcome_email or 0),
-            "enabled": 1,
+            "enabled": enabled_val,                         # <- incluye enabled al actualizar
             "role_profile_name": target_profile,
             "roles": roles_final,
         })
         user_doc.save(ignore_permissions=True)
-        # contraseña solo si viene (y no es placeholder típico)
         if pwd and pwd.strip() and pwd.strip() not in {"___nochange___", "****"}:
             update_password(user_doc.name, pwd)
 
-    # --- User Permission a la Company ---
+    # User Permission a Company
     if int(add_permission or 0):
         exists = frappe.get_all(
             "User Permission",
@@ -477,10 +503,18 @@ def create_company_user(
                 "apply_to_all_doctypes": 0
             }).insert(ignore_permissions=True)
 
-    # --- default_company si existe el field ---
+    # default_company si existe el field
     if _meta_has_field("User", "default_company"):
         user_doc.db_set("default_company", comp_doc.name, update_modified=False)
 
+    # Si desactivaste, opcional: cerrar sesiones
+    # if enabled_val == 0:
+    #     try:
+    #         logout_all_sessions(user=email)
+    #     except Exception:
+    #         pass
+
+    frappe.db.commit()
     return {
         "ok": True,
         "user": user_doc.name,
@@ -488,6 +522,7 @@ def create_company_user(
         "role_profile": target_profile,
         "roles_assigned": [r["role"] for r in roles_final],
         "created": creating,
+        "enabled": enabled_val,
     }
 
 

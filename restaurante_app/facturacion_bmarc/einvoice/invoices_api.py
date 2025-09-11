@@ -172,7 +172,7 @@ def get_order_detail(name: str):
     else:
         order_items = frappe.get_all("Items",
             filters={"parent": name, "parenttype": "orders", "docstatus": ["!=", 2]},
-            fields=["product","qty","rate","tax_value"])
+            fields=["product","qty","rate","tax_rate"])
         # catálogo productos (opcional)
         prod_ids = [r.product for r in order_items if r.product]
         prod_map = {}
@@ -180,7 +180,7 @@ def get_order_detail(name: str):
             for p in frappe.get_all("Producto", filters={"name": ["in", prod_ids]}, fields=["name","nombre"]):
                 prod_map[p.name] = p.nombre or p.name
         for r in order_items:
-            qty = flt(r.qty); rate = flt(r.rate); tax_rate = flt(r.tax_value or 0)
+            qty = flt(r.qty); rate = flt(r.rate); tax_rate = flt(r.tax_rate or 0)
             subtotal = flt(qty * rate); iva = flt(subtotal * (tax_rate/100)); total = flt(subtotal + iva)
             items.append({
                 "productId": r.product,
@@ -299,6 +299,7 @@ def get_invoice_detail(name: str):
     sri = {
         "status": doc.get("einvoice_status") or "Draft",
         "authorization_datetime": doc.get("authorization_datetime"),
+        "sri_message": doc.get("sri_message"),
         "access_key": doc.get("access_key"),
         "invoice": doc.name,
         "number": number,

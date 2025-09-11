@@ -22,6 +22,7 @@
   "salenoteseq",
   "urlfirma",
   "clave",
+  "obligado_a_llevar_contabilidad",
   "tab_2_tab",
   "firma_section",
   "cert_not_before",
@@ -139,11 +140,18 @@
    "fieldname": "cert_not_after",
    "fieldtype": "Data",
    "label": "cert_not_after"
+  },
+  {
+   "default": "NO",
+   "fieldname": "obligado_a_llevar_contabilidad",
+   "fieldtype": "Select",
+   "label": "Obligado Contabilidad",
+   "options": "SI\nNO"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-26 11:51:16.911811",
+ "modified": "2025-09-10 23:22:53.088084",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Company",

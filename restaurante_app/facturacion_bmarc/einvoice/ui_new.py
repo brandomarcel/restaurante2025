@@ -221,34 +221,6 @@ def _build_canonical_invoice_payload(inv) -> dict:
     }
     return payload
 
-# def _persist_after_emit(inv, api_result: dict):
-#     """Guarda estado, clave de acceso y datos de autorización en la Sales Invoice."""
-#     status = (api_result.get("status") or "").upper()
-#     access_key = api_result.get("accessKey")
-
-#     vals = {
-#         "einvoice_status": {"AUTHORIZED":"AUTORIZADO","PROCESSING":"EN PROCESO","NOT_AUTHORIZED":"RECHAZADO"}.get(status, status),
-#         "status": {"AUTHORIZED":"AUTORIZADO","PROCESSING":"EN PROCESO","NOT_AUTHORIZED":"RECHAZADO"}.get(status, status),
-#         "sri_message": ", ".join(api_result.get("messages") or []) or "",
-#     }
-#     if access_key:
-#         vals["access_key"] = access_key
-
-#     auth = api_result.get("authorization") or {}
-#     if auth.get("date"):
-#         vals["authorization_datetime"] = _parse_fecha_autorizacion(auth.get("date"))
-
-#     # Estab/pto/secuencial pueden venir del payload original; asegúrate de dejarlos
-#     frappe.log_error("secuencial",access_key[30:39])
-#     vals.setdefault("estab", getattr(inv, "estab", None))
-#     vals.setdefault("ptoemi", getattr(inv, "ptoemi", None))
-#     vals.setdefault("secuencial", access_key[30:39])
-
-#     try:
-#         inv.db_set(vals, update_modified=False)
-#     finally:
-#         frappe.db.commit()
-
 # ---------------- NEW: endpoints para el front ----------------
 
 @frappe.whitelist(methods=["POST"], allow_guest=True)
@@ -354,7 +326,7 @@ def emit_existing_invoice_v2(invoice_name: str):
     payload = _build_canonical_invoice_payload(inv)
     api_result = emitir_factura_por_invoice(invoice_name)
     persist_after_emit(inv, api_result)
-    if api_result.get("status") != "AUTHORIZED":
+    if api_result.get("status") != "AUTHORIZED" and api_result.get("status") != "ERROR":
         
         sri_estado_result = sri_estado_and_update_data(inv.name)
         

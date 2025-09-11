@@ -35,6 +35,8 @@ def _fmt_errors(resp: dict) -> str:
 class SalesInvoice(Document):
     def validate(self):
         # Calcula totales si no están seteados
+        if self.posting_date:
+            self.posting_date =  frappe.utils.today()
         if not self.total_without_tax or not self.grand_total:
             subtotal = 0.0
             tax_total = 0.0
@@ -58,7 +60,7 @@ class SalesInvoice(Document):
         self.company_email = company.email
         self.company_logo = company.logo
         self.company_contribuyente = company.get("contribuyente_especial") or "N/A"
-        self.company_contabilidad = "SI" if company.get("obligado_a_llevar_contabilidad") else "NO"
+        self.company_contabilidad = "SI" if company.get("obligado_a_llevar_contabilidad")== 1 else "NO"
 
         return {"doc": self}
 # ---------------- API: crear desde UI ----------------

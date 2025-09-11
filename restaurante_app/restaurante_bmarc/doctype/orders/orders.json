@@ -163,7 +163,6 @@
    "default": "Nota Venta",
    "fieldname": "estado_sri",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Estado SRI"
   },
   {
@@ -213,7 +212,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-19 16:17:31.243738",
+ "modified": "2025-09-10 14:47:38.996728",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "orders",

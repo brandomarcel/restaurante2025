@@ -248,7 +248,7 @@ def _build_invoice_payload(inv, company) -> Dict[str, Any]:
     infoFactura = {
         "fechaEmision": fechaEmision,
         "dirEstablecimiento": getattr(company, "address", None) or "Ecuador",
-        "obligadoContabilidad": "SI" if getattr(company, "obligado_a_llevar_contabilidad", 0) else "NO",
+        "obligadoContabilidad": "SI" if company.get("obligado_a_llevar_contabilidad")== 1 else "NO",
         "tipoIdentificacionComprador": idType,
         "razonSocialComprador": buyer_name,
         "identificacionComprador": ident,
