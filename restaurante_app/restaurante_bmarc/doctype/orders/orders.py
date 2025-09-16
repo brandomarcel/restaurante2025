@@ -502,9 +502,6 @@ def _enqueue_invoice_for_order(order_name: str):
     # MUY IMPORTANTE: queue_einvoice debe encolar (no ejecutar en línea)
     queue_einvoice(inv_name)
 
-
-
-
 @frappe.whitelist()
 def create_order_v2():
     data = frappe.request.get_json()
