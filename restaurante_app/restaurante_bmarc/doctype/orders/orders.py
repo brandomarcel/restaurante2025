@@ -303,7 +303,7 @@ def get_all_orders(limit=10, offset=0):
     order_item_rows = frappe.get_all(
         "Items",
         filters={"parent": ["in", order_names], "parenttype": "orders", "docstatus": ["!=", 2]},
-        fields=["parent", "product", "qty", "rate", "tax", "tax_value"],
+        fields=["parent", "product", "qty", "rate", "tax", "tax_rate"],
     )
 
     # Catálogo de productos (para nombre legible)
@@ -326,7 +326,7 @@ def get_all_orders(limit=10, offset=0):
         order = r["parent"]
         qty = flt(r.get("qty"))
         rate = flt(r.get("rate"))
-        tax_rate = flt(r.get("tax_value") if r.get("tax_value") is not None else taxes_map.get(r.get("tax"), 0))
+        tax_rate = flt(r.get("tax_rate") if r.get("tax_rate") is not None else taxes_map.get(r.get("tax"), 0))
         subtotal = flt(qty * rate)
         iva = flt(subtotal * (tax_rate / 100.0))
         total = flt(subtotal + iva)
