@@ -2,7 +2,7 @@
  "actions": [],
  "allow_copy": 1,
  "allow_rename": 1,
- "autoname": "field:num_identificacion",
+ "autoname": "format:{company_id}-{num_identificacion}",
  "creation": "2025-04-20 00:43:53.362196",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -14,7 +14,8 @@
   "column_break_qmzz",
   "num_identificacion",
   "correo",
-  "isactive"
+  "isactive",
+  "company_id"
  ],
  "fields": [
   {
@@ -42,8 +43,7 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "N\u00famero de Identificaci\u00f3n",
-   "reqd": 1,
-   "unique": 1
+   "reqd": 1
   },
   {
    "fieldname": "correo",
@@ -60,17 +60,26 @@
    "fieldname": "isactive",
    "fieldtype": "Check",
    "label": "Activo"
+  },
+  {
+   "fieldname": "company_id",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Compa\u00f1ia",
+   "options": "Company",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "hide_toolbar": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-24 11:04:55.940473",
+ "modified": "2025-08-06 22:47:55.110176",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Cliente",
- "naming_rule": "By fieldname",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {

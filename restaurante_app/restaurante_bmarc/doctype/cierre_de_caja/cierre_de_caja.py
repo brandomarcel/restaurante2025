@@ -1,7 +1,9 @@
 import frappe
+from frappe import _
 from frappe.model.document import Document
 from frappe.utils import now_datetime
-
+from restaurante_app.restaurante_bmarc.api.user import get_user_company
+from restaurante_app.restaurante_bmarc.api.utils import meta_has_field,normalize_datetime_param
 
 class CierredeCaja(Document):
     def before_save(self):
@@ -24,6 +26,8 @@ class CierredeCaja(Document):
 
 @frappe.whitelist()
 def calcular_datos_para_cierre(usuario, desde=None, hasta=None):
+    company = get_user_company()
+
     """
     Calcula datos clave para cierre de caja:
     - busca apertura activa
@@ -34,7 +38,8 @@ def calcular_datos_para_cierre(usuario, desde=None, hasta=None):
     # Obtener apertura activa
     apertura = frappe.get_all("Apertura de Caja", filters={
         "usuario": usuario,
-        "estado": "Abierta"
+        "estado": "Abierta",
+        "company_id": company
     }, limit=1)
 
     if not apertura:
@@ -85,21 +90,41 @@ def calcular_datos_para_cierre(usuario, desde=None, hasta=None):
 
 @frappe.whitelist()
 def obtener_reporte_cierres(usuario=None, desde=None, hasta=None):
-    filters = []
+    # Permiso base del doctype (opcional si confías en RBAC por permisos de Frappe)
+    if not frappe.has_permission("Cierre de Caja", "read"):
+        frappe.throw(_("No tienes permiso para ver cierres de caja"))
+
+    # Compañía del usuario en sesión
+    company = get_user_company()
+
+    # Determinar el nombre del campo de compañía en el doctype
+    # (usa el que tengas: 'company_id' o 'company')
+    if meta_has_field("Cierre de Caja", "company_id"):
+        company_field = "company_id"
+    elif meta_has_field("Cierre de Caja", "company"):
+        company_field = "company"
+    else:
+        frappe.throw(_("El Doctype 'Cierre de Caja' no tiene un campo de compañía (company_id/company)."))
+
+    # Construir filtros
+    filters = [[company_field, "=", company]]
 
     if usuario:
+        # El doctype ya tiene campo 'usuario', lo usas si viene
         filters.append(["usuario", "=", usuario])
 
-    if desde:
-        filters.append(["fecha_hora", ">=", desde])
+    # Normalizar rangos de fecha/hora
+    d_ini = normalize_datetime_param(desde, end=False)
+    d_fin = normalize_datetime_param(hasta, end=True)
 
-    if hasta:
-        # Ajuste: si es solo fecha (sin espacio), agregar hora final
-        if " " not in hasta:
-            hasta += " 23:59:59"
-        filters.append(["fecha_hora", "<=", hasta])
+    if d_ini:
+        filters.append(["fecha_hora", ">=", d_ini])
+    if d_fin:
+        filters.append(["fecha_hora", "<=", d_fin])
 
-    cierres = frappe.get_all("Cierre de Caja",
+    # Traer cierres de la compañía (y usuario si se envió)
+    cierres = frappe.get_all(
+        "Cierre de Caja",
         filters=filters,
         fields=[
             "name", "usuario", "fecha_hora", "efectivo_sistema",
@@ -109,14 +134,25 @@ def obtener_reporte_cierres(usuario=None, desde=None, hasta=None):
         order_by="fecha_hora desc"
     )
 
+    # Adjuntar detalle
     for cierre in cierres:
-        detalle = frappe.get_all("Detalle Cierre de Caja",
+        detalle = frappe.get_all(
+            "Detalle Cierre de Caja",
             filters={"parent": cierre.name},
             fields=["metodo_pago", "monto"]
         )
         cierre["detalle"] = detalle
 
-    return cierres
-
+    return {
+        "ok": True,
+        "company": company,
+        "filters": {
+            "usuario": usuario or None,
+            "desde": d_ini,
+            "hasta": d_fin
+        },
+        "data": cierres,
+        "total": len(cierres)
+    }
 
 

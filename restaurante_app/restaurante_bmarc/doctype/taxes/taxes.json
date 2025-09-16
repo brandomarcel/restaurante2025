@@ -1,13 +1,15 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:IVA-{value}",
+ "autoname": "format:IVA-{company_id}-{value}",
  "creation": "2025-05-19 23:21:56.070072",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "impuesto_section",
-  "value"
+  "value",
+  "company_id",
+  "is_active"
  ],
  "fields": [
   {
@@ -22,11 +24,27 @@
    "label": "Valor",
    "reqd": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "company_id",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Compa\u00f1ia",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Activo"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-20 23:56:52.757210",
+ "modified": "2025-08-14 23:11:48.801008",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "taxes",
@@ -55,6 +73,7 @@
    "share": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

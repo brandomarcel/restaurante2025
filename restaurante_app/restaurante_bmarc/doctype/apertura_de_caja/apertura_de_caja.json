@@ -9,7 +9,8 @@
   "fecha_hora",
   "monto_apertura",
   "observacion",
-  "estado"
+  "estado",
+  "company_id"
  ],
  "fields": [
   {
@@ -38,12 +39,22 @@
    "fieldtype": "Select",
    "label": "Estado",
    "options": "Abierta\nCerrada"
+  },
+  {
+   "fieldname": "company_id",
+   "fieldtype": "Link",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Compa\u00f1ia",
+   "options": "Company",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-01 11:48:25.940370",
+ "modified": "2025-08-18 23:03:06.771374",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Apertura de Caja",
@@ -71,6 +82,19 @@
    "read": 1,
    "report": 1,
    "role": "Gerente",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Cajero",
    "select": 1,
    "share": 1,
    "write": 1

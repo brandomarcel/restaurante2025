@@ -16,10 +16,18 @@
   "emissionpoint",
   "invoiceseq_pruebas",
   "invoiceseq_prod",
+  "ncseq_prod",
+  "ncseq_pruebas",
   "ambiente",
   "salenoteseq",
   "urlfirma",
-  "clave"
+  "clave",
+  "obligado_a_llevar_contabilidad",
+  "tab_2_tab",
+  "firma_section",
+  "cert_not_before",
+  "cert_not_after",
+  "cert_common_name"
  ],
  "fields": [
   {
@@ -69,15 +77,17 @@
   },
   {
    "fieldname": "clave",
-   "fieldtype": "Password",
+   "fieldtype": "Data",
    "label": "Clave"
   },
   {
+   "default": "0",
    "fieldname": "invoiceseq_pruebas",
    "fieldtype": "Int",
    "label": "Secuencial Factura Pruebas"
   },
   {
+   "default": "0",
    "fieldname": "invoiceseq_prod",
    "fieldtype": "Int",
    "label": "Secuencial Factura Produccion"
@@ -93,11 +103,55 @@
    "fieldname": "logo",
    "fieldtype": "Attach Image",
    "label": "Logo"
+  },
+  {
+   "default": "0",
+   "fieldname": "ncseq_prod",
+   "fieldtype": "Int",
+   "label": "Secuencial Nota Credito Produccion"
+  },
+  {
+   "default": "0",
+   "fieldname": "ncseq_pruebas",
+   "fieldtype": "Int",
+   "label": "Secuencial Nota Credito Pruebas"
+  },
+  {
+   "fieldname": "tab_2_tab",
+   "fieldtype": "Tab Break",
+   "label": "Firma"
+  },
+  {
+   "fieldname": "firma_section",
+   "fieldtype": "Section Break",
+   "label": "FIRMA"
+  },
+  {
+   "fieldname": "cert_common_name",
+   "fieldtype": "Data",
+   "label": "Emitido a nombre de"
+  },
+  {
+   "fieldname": "cert_not_before",
+   "fieldtype": "Data",
+   "label": "cert_not_before"
+  },
+  {
+   "fieldname": "cert_not_after",
+   "fieldtype": "Data",
+   "label": "cert_not_after"
+  },
+  {
+   "default": "NO",
+   "fieldname": "obligado_a_llevar_contabilidad",
+   "fieldtype": "Select",
+   "label": "Obligado Contabilidad",
+   "options": "SI\nNO"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-17 23:56:37.995118",
+ "modified": "2025-09-10 23:22:53.088084",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Company",
@@ -132,7 +186,9 @@
  ],
  "read_only": 1,
  "row_format": "Dynamic",
+ "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "businessname"
 }

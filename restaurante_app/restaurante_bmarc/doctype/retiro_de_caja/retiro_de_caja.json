@@ -10,7 +10,8 @@
   "fecha_hora",
   "motivo",
   "monto",
-  "relacionado_a"
+  "relacionado_a",
+  "company_id"
  ],
  "fields": [
   {
@@ -39,12 +40,22 @@
    "fieldtype": "Link",
    "label": "Relacionado a",
    "options": "Apertura de Caja"
+  },
+  {
+   "fieldname": "company_id",
+   "fieldtype": "Link",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Compa\u00f1ia",
+   "options": "Company",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-01 11:49:10.473556",
+ "modified": "2025-08-07 17:11:38.297846",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Retiro de Caja",
