@@ -64,7 +64,7 @@ def get_all_invoices(limit=10, offset=0):
         order_by="creation desc",
         fields=[
             "name", "creation", "posting_date",
-            "customer", "company",
+            "customer", "company_id",
             "grand_total",
             "einvoice_status",
             "authorization_datetime",
