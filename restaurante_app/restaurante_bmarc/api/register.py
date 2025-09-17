@@ -400,10 +400,10 @@ def create_company_user(
 
     role_key_norm = (role_key or "").strip().lower()
     if role_key_norm not in ROLE_MAP:
-        frappe.throw(_("role_key debe ser 'cajero' o 'gerente'."))
+        frappe.throw(_("role_key debe ser 'Cajero' o 'Gerente'."))
 
     # Si no eres SysMan, no puedes crear Gerentes
-    if "System Manager" not in set(frappe.get_roles(frappe.session.user)) and role_key_norm == "gerente":
+    if "System Manager" not in set(frappe.get_roles(frappe.session.user)) and role_key_norm == "Gerente":
         frappe.throw(_("No tienes permisos para crear usuarios con rol Gerente."))
 
     # --- Resolver Company ---
