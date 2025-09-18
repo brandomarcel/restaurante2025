@@ -84,7 +84,7 @@ console.log('Sales Invoice - Refresh',status);
       if (status !== 'AUTORIZADO') {
   frm.add_custom_button('Reenviar al SRI', () => {
     frappe.call({
-      method: 'restaurante_app.facturacion_bmarc.doctype.sales_invoice.sales_invoice.queue_einvoice',
+      method: 'restaurante_app.facturacion_bmarc.einvoice.ui_new.emit_existing_invoice_v2',
       args: {
         invoice_name: frm.doc.name,
       },
