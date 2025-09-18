@@ -17,12 +17,15 @@ def _render_email_body(inv):
             logo = frappe.utils.get_url(
                 frappe.get_cached_value("Company", inv.company_id, "logo")
             )
+            nameCompany = frappe.db.get_value("Company", inv.company_id, "businessname")
+            
         ctx = {
             "nombre_cliente": getattr(inv, "customer_name", None) or getattr(inv, "nombre_cliente", None) or "",
             "secuencial": secuencial_fmt,
             "fecha_emision": frappe.utils.formatdate(getattr(inv, "posting_date", None) or frappe.utils.today(), "dd/MM/yyyy"),
             "numero_autorizacion": getattr(inv, "access_key", None) or getattr(inv, "clave_acceso", None) or "",
-            "logo_url": logo,  # por si prefieres usarlo en el template
+            "logo_url": logo,
+            "nameCompany": nameCompany
         }
         return frappe.render_template(email_template.response_html, ctx)
     # Fallback
