@@ -325,7 +325,7 @@ def _map_payments(pay_rows, total: float):
 # Nota de Crédito (mapeo a JSON canónico)
 # ======================================================
 
-def _build_credit_note_payload(inv, company, motivo_global: str = "Devolución / Descuento") -> Dict[str, Any]:
+def _build_credit_note_payload(inv, company, motivo_global: str = "ANULACION") -> Dict[str, Any]:
     """
     Construye el JSON canónico para /api/v1/credit-notes/emit
     Nota: numDocModificado DEBE IR con guiones EEE-PPP-NNNNNNNNN.
@@ -393,7 +393,9 @@ def _build_credit_note_payload(inv, company, motivo_global: str = "Devolución /
             for v in totals_map.values()
         ],
         "valorModificacion": importe_total,
-        "moneda": "DOLAR"
+        "moneda": "DOLAR",
+        # ⚠ obligatorio en NC detalle (evita cvc-minLength valid)
+        "motivo": motivo_global or "ANULACION"
     }
 
     detalles = []
@@ -418,9 +420,7 @@ def _build_credit_note_payload(inv, company, motivo_global: str = "Devolución /
                 "tarifa": pct,
                 "baseImponible": float(f"{base:.2f}"),
                 "valor": float(f"{(base * pct/100.0):.2f}")
-            }],
-            # ⚠ obligatorio en NC detalle (evita cvc-minLength valid)
-            "motivo": motivo_global or "Devolución / Descuento"
+            }]
         })
 
     payload = {
@@ -475,7 +475,7 @@ def emitir_nota_credito_por_invoice(invoice_name: str, motivo: Optional[str] = N
     """
     Construye el JSON canónico de Nota de Crédito (full contra la factura) y lo envía al micro (/credit-notes/emit).
     """
-    inv = frappe.get_doc("Sales Invoice", invoice_name)
+    inv = frappe.get_doc("Credit Note", invoice_name)
     company = _get_company(inv.company_id)
     payload = _build_credit_note_payload(inv, company, motivo_global=(motivo or "Devolución / Descuento"))
     return _post_api("/api/v1/credit-notes/emit", payload, timeout=120)

@@ -2,7 +2,7 @@ import json
 import random
 from decimal import Decimal, ROUND_HALF_UP
 
-from restaurante_app.facturacion_bmarc.api.utils import persist_after_emit
+from restaurante_app.facturacion_bmarc.api.utils import persist_after_emit,_is_consumidor_final
 import frappe
 from frappe import _
 
@@ -275,19 +275,14 @@ def create_and_emit_from_ui_v2():
             row.forma_pago = p.get("formas_de_pago")  # tu doctype; resolvemos a SRI luego
 
     inv.insert(ignore_permissions=True)
-
-    # 2) Construir payload canónico y enviar al micro
-    # payload = _build_canonical_invoice_payload(inv)
-    # api_result = emitir_factura_por_invoice(payload)
-    
     api_result = emitir_factura_por_invoice(inv.name)
 
     # 3) Persistir resultado
-    persist_after_emit(inv, api_result)
+    persist_after_emit(inv, api_result,'factura')
     
     if api_result.get("status") != "AUTHORIZED":
         
-        sri_estado_result = sri_estado_and_update_data(inv.name)
+        sri_estado_result = sri_estado_and_update_data(inv.name, 'factura')
         
         if sri_estado_result.get("status") == "AUTHORIZED":
             return {
@@ -305,7 +300,8 @@ def create_and_emit_from_ui_v2():
                 job_name=f"einvoice-for-{inv.name}",
                 enqueue_after_commit=True,
                 timeout=3,
-                invoice_name=inv.name
+                invoice_name=inv.name,
+                type='factura'
                 
             )
 
@@ -323,12 +319,11 @@ def emit_existing_invoice_v2(invoice_name: str):
     inv = frappe.get_doc("Sales Invoice", invoice_name)
     if inv.status == 'AUTORIZADO':
         frappe.throw(_("La factura ya fue autorizada"))
-    payload = _build_canonical_invoice_payload(inv)
     api_result = emitir_factura_por_invoice(invoice_name)
-    persist_after_emit(inv, api_result)
+    persist_after_emit(inv, api_result,'factura')
     if api_result.get("status") != "AUTHORIZED" and api_result.get("status") != "ERROR":
         
-        sri_estado_result = sri_estado_and_update_data(inv.name)
+        sri_estado_result = sri_estado_and_update_data(inv.name, 'factura')
         
         if sri_estado_result.get("status") != "AUTHORIZED":
             return {
@@ -346,7 +341,8 @@ def emit_existing_invoice_v2(invoice_name: str):
                 job_name=f"einvoice-for-{inv.name}",
                 enqueue_after_commit=True,
                 timeout=3,
-                invoice_name=inv.name
+                invoice_name=inv.name,
+                type='factura'
                 
             )
 
@@ -360,17 +356,106 @@ def emit_existing_invoice_v2(invoice_name: str):
 
 # (Opcional) Nota de Crédito – cuando ya estés listo
 @frappe.whitelist(methods=["POST"], allow_guest=True)
-def emit_credit_note_v2():
-    """
-    Espera JSON canónico de Nota de Crédito (ya preparado en tu UI/ERP).
-    Si quieres, puedo darte un builder similar al de factura.
-    """
-    data = frappe.request.get_json() or {}
-    if not data:
-        frappe.throw("Payload vacío")
+def emit_credit_note_v2(invoice_name: str, motivo: str):
+    
+    
 
-    result = emitir_nota_credito_por_invoice(data)
-    return result
+    if not invoice_name or not motivo:
+        frappe.throw(_("Debe proporcionar el nombre de la factura y el motivo."))
+    data = frappe.get_doc("Sales Invoice", invoice_name) 
+    if data.status == "ANULADA":
+        frappe.throw("La factura ya fue anulada.")
+    if _is_consumidor_final(data.customer) :
+        frappe.throw(_(f"No se puede anular una factura para un Consumidor Final"))
+    company_name = frappe.db.get_default("company") or frappe.get_all("Company", limit=1)[0].name
+    company = frappe.get_doc("Company", company_name)
+    
+    inv = frappe.new_doc("Credit Note")
+    secuencial_factura = f"{(data.estab or '').zfill(3)}-{(data.ptoemi or '').zfill(3)}-{(data.secuencial or '').zfill(9)}"
+    inv.update({
+        "company_id": company.name,
+        "customer": getattr(data, "customer"),
+        "customer_name": frappe.db.get_value("Cliente", getattr(data, "customer"), "nombre"),
+        "customer_tax_id": frappe.db.get_value("Cliente", getattr(data, "customer"), "num_identificacion"),
+        "customer_email": frappe.db.get_value("Cliente", getattr(data, "customer"), "correo"),
+        "posting_date": frappe.utils.today(),
+        "estab": getattr(company, "establishmentcode", None) or "001",
+        "ptoemi": getattr(company, "emissionpoint", None) or "001",
+        "secuencial": None, 
+        "einvoice_status": "BORRADOR",
+        "status": "BORRADOR",
+        "invoice_reference": invoice_name,
+        "grand_total": getattr(data, "grand_total"),
+        "total_without_tax": getattr(data, "total_without_tax"),
+        "tax_total": getattr(data, "tax_total"),
+        "tax_total": getattr(data, "tax_total"),
+        "posting_date_factura": getattr(data, "posting_date"),
+        "secuencial_factura": secuencial_factura,
+        
+        
+        "motivo": motivo
+    })
+
+    for it in (data.get("items") or []):
+        inv.append("items", {
+            "item_code": it.get("item_code") or "ADHOC",
+            "item_name": it.get("item_name") or it.get("description") or it.get("product") or "Ítem",
+            "qty": float(it.get("qty") or 0),
+            "rate": float(it.get("rate") or 0),
+            "tax_rate": float(it.get("tax_rate") or 0),
+        })
+
+    # (opcional) payments
+    if data.get("payments"):
+        for p in data["payments"]:
+            row = inv.append("payments", {})
+            row.forma_pago = p.get("formas_de_pago")  # tu doctype; resolvemos a SRI luego
+
+    inv.insert(ignore_permissions=True)    
+    api_result = emitir_nota_credito_por_invoice(inv.name, motivo)
+    if api_result.get("status") == "AUTHORIZED":
+        #quiero actualizar el estado en sales inovice
+        frappe.db.sql("""UPDATE `tabSales Invoice` SET  status=%s WHERE name=%s""", ('ANULADA', invoice_name))
+        frappe.db.commit()
+        # Limpiar caché para futuras lecturas en esta misma request/job
+        frappe.clear_document_cache("Sales Invoice", invoice_name)
+    persist_after_emit(inv, api_result, 'nota_credito')
+    if api_result.get("status") != "AUTHORIZED":
+        
+        sri_estado_result = sri_estado_and_update_data(inv.name, 'nota_credito')
+        
+        if sri_estado_result.get("status") == "AUTHORIZED":
+            frappe.db.sql("""UPDATE `tabSales Invoice` SET  status=%s WHERE name=%s""", ('ANULADA', invoice_name))
+            frappe.db.commit()
+            # Limpiar caché para futuras lecturas en esta misma request/job
+            frappe.clear_document_cache("Sales Invoice", invoice_name)
+            return {
+                    "invoice": inv.name,
+                    "status": sri_estado_result.get("status"),
+                    "access_key": sri_estado_result.get("accessKey"),
+                    "messages": sri_estado_result.get("messages") or [],
+                    "authorization": sri_estado_result.get("authorization"),
+                    }
+        else:
+            # Encola la facturación para ejecutarse después del commit de esta transacción
+            frappe.enqueue(
+                "restaurante_app.facturacion_bmarc.einvoice.edocs.sri_estado_and_update_data",
+                queue="long",
+                job_name=f"einvoice-for-{inv.name}",
+                enqueue_after_commit=True,
+                timeout=3,
+                invoice_name=inv.name,
+                type='nota_credito'
+                
+            )
+
+    return {
+        "invoice": inv.name,
+        "status": api_result.get("status"),
+        "access_key": api_result.get("accessKey"),
+        "messages": api_result.get("messages") or [],
+        "authorization": api_result.get("authorization"),
+    }
 
 # Consulta de estado (proxy a tu client)
 @frappe.whitelist(methods=["GET"], allow_guest=True)

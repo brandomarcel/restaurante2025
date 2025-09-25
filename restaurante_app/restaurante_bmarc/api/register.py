@@ -111,7 +111,8 @@ def register_tenant_open(
             "emissionpoint": company.get("emissionpoint"),
             "invoiceseq_prod": company.get("invoiceseq_prod"),
             "invoiceseq_pruebas": company.get("invoiceseq_pruebas"),
-            "salenoteseq": company.get("salenoteseq"),
+            "ncseq_pruebas": company.get("ncseq_pruebas"),
+            "ncseq_prod": company.get("ncseq_prod")
         }).insert(ignore_permissions=True)
         
         # ... tras crear comp_doc ...

@@ -11,10 +11,11 @@ class Producto(Document):
 	pass
 
 @frappe.whitelist()
-def get_productos():
+def get_productos(isactive=None):
     company = get_user_company()
 
-    data = frappe.db.sql("""
+    # Base query
+    query = """
         SELECT 
             p.name,
             p.nombre,
@@ -32,11 +33,21 @@ def get_productos():
         FROM `tabProducto` p
         LEFT JOIN `tabtaxes` t ON p.tax = t.name
         WHERE p.company_id = %s
-          AND p.isactive = 1
-        ORDER BY p.modified DESC
-    """, company, as_dict=True)
+    """
+
+    params = [company]
+
+    # Si viene definido el filtro, lo agregamos
+    if isactive is not None:
+        query += " AND p.isactive = %s"
+        params.append(int(isactive))
+
+    query += " ORDER BY p.modified DESC"
+
+    data = frappe.db.sql(query, params, as_dict=True)
 
     return {"data": data}
+
 
 @frappe.whitelist()
 def create_producto(**kwargs):
