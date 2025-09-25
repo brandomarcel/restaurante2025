@@ -426,3 +426,9 @@ def save_invoice_xmls(invoice_name: str, xml_signed_base64: str = None,access_ke
     
     return xml_files_saved
 
+
+
+def _is_consumidor_final(cliente_name: str) -> bool:
+    # Normaliza por si viene con mayúsculas/minúsculas o espacios
+    tipo = (frappe.db.get_value("Cliente", cliente_name, "tipo_identificacion") or "").strip().lower()
+    return tipo.startswith("07") or "consumidor final" in tipo

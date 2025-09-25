@@ -221,7 +221,7 @@ def sri_estado_and_update_data(invoice_name: Optional[str] = None,type: str = No
         r.raise_for_status()
         resp = r.json()
         frappe.log_error(resp.get("status"), "status")
-        persist_after_emit(inv, resp)
+        persist_after_emit(inv, resp,type)
         return r.json()
     except Timeout as e:
         frappe.log_error(str(e), "OpenFactura Estado Timeout")

@@ -2,7 +2,7 @@ import json
 import random
 from decimal import Decimal, ROUND_HALF_UP
 
-from restaurante_app.facturacion_bmarc.api.utils import persist_after_emit
+from restaurante_app.facturacion_bmarc.api.utils import persist_after_emit,_is_consumidor_final
 import frappe
 from frappe import _
 
@@ -357,13 +357,16 @@ def emit_existing_invoice_v2(invoice_name: str):
 # (Opcional) Nota de Crédito – cuando ya estés listo
 @frappe.whitelist(methods=["POST"], allow_guest=True)
 def emit_credit_note_v2(invoice_name: str, motivo: str):
+    
+    
 
     if not invoice_name or not motivo:
         frappe.throw(_("Debe proporcionar el nombre de la factura y el motivo."))
     data = frappe.get_doc("Sales Invoice", invoice_name) 
     if data.status == "ANULADA":
         frappe.throw("La factura ya fue anulada.")
-
+    if _is_consumidor_final(data.customer) :
+        frappe.throw(_(f"No se puede anular una factura para un Consumidor Final"))
     company_name = frappe.db.get_default("company") or frappe.get_all("Company", limit=1)[0].name
     company = frappe.get_doc("Company", company_name)
     
@@ -410,17 +413,22 @@ def emit_credit_note_v2(invoice_name: str, motivo: str):
 
     inv.insert(ignore_permissions=True)    
     api_result = emitir_nota_credito_por_invoice(inv.name, motivo)
-    #quiero actualizar el estado en sales inovice
-    frappe.db.sql("""UPDATE `tabSales Invoice` SET  status=%s WHERE name=%s""", ('ANULADA', invoice_name))
-    frappe.db.commit()
-    # Limpiar caché para futuras lecturas en esta misma request/job
-    frappe.clear_document_cache("Sales Invoice", invoice_name)
+    if api_result.get("status") == "AUTHORIZED":
+        #quiero actualizar el estado en sales inovice
+        frappe.db.sql("""UPDATE `tabSales Invoice` SET  status=%s WHERE name=%s""", ('ANULADA', invoice_name))
+        frappe.db.commit()
+        # Limpiar caché para futuras lecturas en esta misma request/job
+        frappe.clear_document_cache("Sales Invoice", invoice_name)
     persist_after_emit(inv, api_result, 'nota_credito')
     if api_result.get("status") != "AUTHORIZED":
         
         sri_estado_result = sri_estado_and_update_data(inv.name, 'nota_credito')
         
         if sri_estado_result.get("status") == "AUTHORIZED":
+            frappe.db.sql("""UPDATE `tabSales Invoice` SET  status=%s WHERE name=%s""", ('ANULADA', invoice_name))
+            frappe.db.commit()
+            # Limpiar caché para futuras lecturas en esta misma request/job
+            frappe.clear_document_cache("Sales Invoice", invoice_name)
             return {
                     "invoice": inv.name,
                     "status": sri_estado_result.get("status"),

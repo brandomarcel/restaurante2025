@@ -70,6 +70,7 @@ def get_all_invoices(limit=10, offset=0):
             "authorization_datetime",
             "access_key",
             "estab", "ptoemi", "secuencial",
+            "status",
             "order"  # ← enlace a la orden si existe
         ]
     )
@@ -119,6 +120,7 @@ def get_all_invoices(limit=10, offset=0):
         data.append({
             "name": inv.get("name"),
             "type": "Factura",
+            "status": inv.get("status"),
             "createdAt": inv.get("creation"),
             "posting_date": inv.get("posting_date"),
             "total": inv.get("grand_total"),
@@ -312,6 +314,7 @@ def get_invoice_detail(name: str):
     data = {
         "name": doc.name,
         "type": "Factura",
+        "status": doc.status,
         "createdAt": doc.creation,
         "subtotal": doc_subtotal,
         "iva": doc_total_taxes,

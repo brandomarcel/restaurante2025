@@ -595,7 +595,7 @@ def create_and_emit_from_ui_v2_from_order(order_name: str):
     api_result = emitir_factura_por_invoice(inv.name)
 
     # 3) Persistir resultado
-    persist_after_emit(inv, api_result)
+    persist_after_emit(inv, api_result, "factura")
     
     if api_result.get("status") != "AUTHORIZED":
         
