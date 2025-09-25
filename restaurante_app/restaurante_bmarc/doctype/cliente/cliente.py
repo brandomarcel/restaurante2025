@@ -11,17 +11,20 @@ from restaurante_app.restaurante_bmarc.api.user import get_user_company
 class Cliente(Document):
 	pass
 @frappe.whitelist()
-def get_clientes():
+def get_clientes(isactive=None):
     # Obtener la compañía por default o por permiso
     company = get_user_company()
 
-    # Buscar clientes activos de esa compañía
+    # Armar filtros dinámicos
+    filters = {"company_id": company}
+
+    if isactive is not None:  # si el parámetro viene definido
+        filters["isactive"] = int(isactive)  # convierte a entero (0/1)
+
+    # Buscar clientes
     clientes = frappe.get_all(
         "Cliente",
-        filters={
-            "company_id": company,
-            "isactive": 1
-        },
+        filters=filters,
         fields=[
             "name", "nombre", "telefono", "direccion", "tipo_identificacion",
             "num_identificacion", "correo", "isactive", "company_id"
@@ -32,6 +35,7 @@ def get_clientes():
     return {
         "data": clientes
     }
+
 
 
 @frappe.whitelist(allow_guest=True)
@@ -99,7 +103,8 @@ def update_cliente(**kwargs):
         "direccion",
         "correo",
         "tipo_identificacion",
-        "num_identificacion"
+        "num_identificacion",
+        "isactive"
     ]
 
     for campo in campos_actualizables:

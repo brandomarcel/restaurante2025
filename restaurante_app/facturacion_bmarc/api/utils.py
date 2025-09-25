@@ -7,7 +7,7 @@ import pytz
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import random
 from typing import Optional, Tuple, Dict
-from restaurante_app.restaurante_bmarc.api.sendFactura import enviar_factura_sales_invoice 
+from restaurante_app.restaurante_bmarc.api.sendFactura import enviar_factura_sales_invoice,enviar_factura_nota_credito 
 import base64
 from frappe.utils.file_manager import save_file
 # =========================
@@ -229,24 +229,19 @@ def _reserve_seq_atomic(company_name: str, field_prod: str, field_test: str) -> 
     return actual
 
 def obtener_y_actualizar_secuencial(company_name: str) -> str:
-    """
-    FACTURA (legacy): usa invoiceseq_prod / invoiceseq_pruebas.
-    """
     actual = _reserve_seq_atomic(company_name, "invoiceseq_prod", "invoiceseq_pruebas")
+    
+    return str(actual).zfill(9)
+
+def obtener_y_actualizar_secuencial_nota_credito(company_name: str) -> str:
+    actual = _reserve_seq_atomic(company_name, "ncseq_prod", "ncseq_pruebas")
     return str(actual).zfill(9)
 
 def reservar_secuencial_invoice(company_name: str) -> str:
     return obtener_y_actualizar_secuencial(company_name)
 
 def reservar_secuencial_nc(company_name: str) -> str:
-    """
-    NOTA DE CRÉDITO: usa ncseq_prod/ncseq_pruebas si existen, si no, cae a los de factura.
-    """
-    try:
-        actual = _reserve_seq_atomic(company_name, "ncseq_prod", "ncseq_pruebas")
-    except Exception:
-        actual = _reserve_seq_atomic(company_name, "invoiceseq_prod", "invoiceseq_pruebas")
-    return str(actual).zfill(9)
+    return obtener_y_actualizar_secuencial_nota_credito(company_name)
 
 def peek_secuencial(company_name: str) -> dict:
     company = frappe.get_doc("Company", company_name)
@@ -270,7 +265,7 @@ def reset_secuencial(company_name: str, nuevo_valor: int):
 # Serie / helpers para micro
 # =========================
 
-def resolve_serie_y_secuencial(company, inv=None, tipo: str = "invoice") -> Tuple[str, str, str, str]:
+def resolve_serie_y_secuencial(company, inv=None, tipo: str = None) -> Tuple[str, str, str, str]:
     """
     Obtiene (estab, ptoEmi, secuencial, serie6) para armar payload al micro.
     - inv puede aportar inv.estab / inv.ptoemi / inv.secuencial
@@ -278,6 +273,8 @@ def resolve_serie_y_secuencial(company, inv=None, tipo: str = "invoice") -> Tupl
     """
     estab = (getattr(inv, "estab", None) or getattr(company, "establishmentcode", None) or "001")
     ptoemi = (getattr(inv, "ptoemi", None) or getattr(company, "emissionpoint", None) or "001")
+
+    
 
     # secuencial
     sec = getattr(inv, "secuencial", None)
@@ -294,7 +291,7 @@ def resolve_serie_y_secuencial(company, inv=None, tipo: str = "invoice") -> Tupl
 # ACTUALIZAR DATA SRI
 # =========================
 
-def persist_after_emit(inv, api_result: dict):
+def persist_after_emit(inv, api_result: dict,type_document: str):
     """Guarda estado, clave de acceso y datos de autorización en la Sales Invoice."""
     status = (api_result.get("status") or "").upper()
     access_key = api_result.get("accessKey")
@@ -330,8 +327,12 @@ def persist_after_emit(inv, api_result: dict):
     
     if api_result.get("status") == "AUTHORIZED":
         try:
-            save_invoice_xmls(inv.name,api_result.get("xml_authorized_base64"),access_key)
-            enviar_factura_sales_invoice(inv.name)
+            save_invoice_xmls(inv.name,api_result.get("xml_authorized_base64"),access_key,type_document)
+            if type_document == "nota_credito":
+                 enviar_factura_nota_credito(inv.name)
+            else:
+                enviar_factura_sales_invoice(inv.name)
+           
         except Exception:
             frappe.log_error(frappe.get_traceback(), "Enviar factura por email falló para {0}".format(inv.name))    
     
@@ -376,12 +377,15 @@ def _parse_fecha_autorizacion(fecha_str: str):
 
 
 # Función auxiliar para solo decodificar y guardar XMLs
-def save_invoice_xmls(invoice_name: str, xml_signed_base64: str = None,access_key: str = "", xml_authorized_base64: str = None):
+def save_invoice_xmls(invoice_name: str, xml_signed_base64: str = None,access_key: str = "",type_document: str = "", xml_authorized_base64: str = None):
     """
     Función auxiliar para decodificar y guardar XMLs de factura
     """
     xml_files_saved = []
-    
+    doctype = "Sales Invoice"
+    if type_document == "nota_credito":
+        doctype = "Credit Note"
+        
     if xml_signed_base64:
         try:
             # Decodificar XML firmado
@@ -391,7 +395,7 @@ def save_invoice_xmls(invoice_name: str, xml_signed_base64: str = None,access_ke
             signed_file = save_file(
                 f"{access_key}_signed.xml",
                 xml_signed_decoded,
-                "Sales Invoice",
+                doctype,
                 invoice_name,
                 folder=None,
                 is_private=0

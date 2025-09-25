@@ -126,3 +126,10 @@ def _parse_fecha_autorizacion(fecha_str: str):
         except Exception:
             continue
     return None
+
+
+@frappe.whitelist( allow_guest=True )
+def get_motivos_anulacion_list():
+    """Devuelve lista de nombres de Company para llenar el filtro Select."""
+    motivos = frappe.get_all("Motivos Anulacion", pluck="motivo", order_by="name")
+    return motivos

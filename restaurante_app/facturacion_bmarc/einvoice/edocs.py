@@ -195,14 +195,19 @@ def sri_estado(access_key: str, env: Optional[str] = None) -> Dict[str, Any]:
         
 
 @frappe.whitelist(methods=["GET"], allow_guest=True)
-def sri_estado_and_update_data(invoice_name: Optional[str] = None) -> Dict[str, Any]:
+def sri_estado_and_update_data(invoice_name: Optional[str] = None,type: str = None) -> Dict[str, Any]:
     """
     Consulta estado en el micro:
     /api/v1/invoices/:accessKey/status?env=test|prod
     Uso: /api/method/tu_app.api.sri_estado?access_key=...&env=test
     """
-    inv = frappe.get_doc("Sales Invoice", invoice_name)
-    frappe.log_error(inv.access_key, "invoice_name")
+    if type == "factura":
+        inv = frappe.get_doc("Sales Invoice", invoice_name)
+        frappe.log_error(inv.access_key, "invoice_name Factura")
+    else:
+        inv = frappe.get_doc("Credit Note", invoice_name)
+        frappe.log_error(inv.access_key, "invoice_name Nota Credito")
+    
     if not inv.access_key or len(inv.access_key) != 49 or not inv.access_key.isdigit():
         frappe.throw("Parámetro access_key inválido (debe tener 49 dígitos).")
 

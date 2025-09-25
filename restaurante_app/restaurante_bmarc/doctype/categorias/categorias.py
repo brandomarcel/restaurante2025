@@ -12,16 +12,17 @@ class categorias(Document):
 	pass
 
 @frappe.whitelist()
-def get_categorias():
+def get_categorias(isactive=None):
     company = get_user_company()
+
+    filters = {"company_id": company}
+    if isactive is not None:
+        filters["isactive"] = int(isactive)
 
     categorias = frappe.get_all(
         "categorias",
-        filters={
-            "company_id": company,
-            "isactive": 1
-        },
-        fields=["name", "nombre", "description", "isactive", "company_id"],
+        filters=filters,
+        fields=["name", "nombre", "description", "company_id", "isactive"],
         order_by="modified DESC"
     )
 
