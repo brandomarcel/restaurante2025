@@ -521,7 +521,10 @@ def create_order_v2():
         "iva": data.get("iva", 0),
         "total": data.get("total", 0),
         "company_id": company,
-        "estado": data.get("estado", "Nota Venta")
+        "estado": data.get("estado", "Nota Venta"),
+        "type_orden": data.get("type_orden", "Servirse"),
+        "delivery_address": data.get("delivery_address", None),
+        "delivery_phone": data.get("delivery_phone", None),
     })
     doc.insert()  # aún no commit
 
