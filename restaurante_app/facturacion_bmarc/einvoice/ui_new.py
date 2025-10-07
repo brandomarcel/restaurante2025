@@ -242,6 +242,15 @@ def create_and_emit_from_ui_v2():
 
     company_name = frappe.db.get_default("company") or frappe.get_all("Company", limit=1)[0].name
     company = frappe.get_doc("Company", company_name)
+    ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
+
+    if ambiente == "PRUEBAS":
+        environment = "Pruebas"
+    elif ambiente == "PRODUCCION":
+        environment = "Producción"
+    else:
+        environment = None
+
 
     # 1) Crea Sales Invoice mínima
     inv = frappe.new_doc("Sales Invoice")
@@ -256,6 +265,7 @@ def create_and_emit_from_ui_v2():
         "ptoemi": getattr(company, "emissionpoint", None) or "001",
         "secuencial": getattr(company, "secuencial", None), 
         "einvoice_status": "BORRADOR",
+        "environment" : environment,
         "status": "BORRADOR",
     })
 
@@ -369,6 +379,13 @@ def emit_credit_note_v2(invoice_name: str, motivo: str):
         frappe.throw(_(f"No se puede anular una factura para un Consumidor Final"))
     company_name = frappe.db.get_default("company") or frappe.get_all("Company", limit=1)[0].name
     company = frappe.get_doc("Company", company_name)
+    ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
+    if ambiente == "PRUEBAS":
+        environment = "Pruebas"
+    elif ambiente == "PRODUCCION":
+        environment = "Producción"
+    else:
+        environment = None
     
     inv = frappe.new_doc("Credit Note")
     secuencial_factura = f"{(data.estab or '').zfill(3)}-{(data.ptoemi or '').zfill(3)}-{(data.secuencial or '').zfill(9)}"
@@ -391,8 +408,7 @@ def emit_credit_note_v2(invoice_name: str, motivo: str):
         "tax_total": getattr(data, "tax_total"),
         "posting_date_factura": getattr(data, "posting_date"),
         "secuencial_factura": secuencial_factura,
-        
-        
+        "environment" : environment,   
         "motivo": motivo
     })
 
