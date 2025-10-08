@@ -18,8 +18,8 @@
   "payments",
   "company_id",
   "type_orden",
-  "direccion_envio",
-  "telefono_envio",
+  "delivery_address",
+  "delivery_phone",
   "facturacion",
   "sales_invoice",
   "clave_acceso",
@@ -215,15 +215,15 @@
    "fieldname": "type_orden",
    "fieldtype": "Select",
    "label": "Tipo de Orden",
-   "options": "Servirse\nLlevar"
+   "options": "Servirse\nLlevar\nDomicilio"
   },
   {
-   "fieldname": "direccion_envio",
+   "fieldname": "delivery_address",
    "fieldtype": "Data",
    "label": "Direcci\u00f3n Envi\u00f3"
   },
   {
-   "fieldname": "telefono_envio",
+   "fieldname": "delivery_phone",
    "fieldtype": "Data",
    "label": "Tel\u00e9fono Envi\u00f3"
   }
@@ -231,7 +231,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-06 23:05:49.447721",
+ "modified": "2025-10-07 23:25:43.038898",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "orders",
