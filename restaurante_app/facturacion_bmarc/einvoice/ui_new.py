@@ -252,6 +252,11 @@ def create_and_emit_from_ui_v2():
         environment = None
 
 
+    tipo_identificacion = frappe.db.get_value("Cliente", data["customer"], "tipo_identificacion")
+
+    if tipo_identificacion and "07" in tipo_identificacion and data.get("total"):
+        frappe.throw("No se puede facturar a Consumidor Final'.")
+
     # 1) Crea Sales Invoice mínima
     inv = frappe.new_doc("Sales Invoice")
     inv.update({
