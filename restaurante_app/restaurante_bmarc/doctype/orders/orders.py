@@ -59,7 +59,6 @@ class orders(Document):
         return {"doc": self}
 
 # ========== HELPERS ==========
-# ========== HELPERS ==========
 def _safe_customer_info(customer: str) -> dict:
     """Devuelve info básica del cliente.
     customer puede ser el name del DocType (p.ej. CLT-0001) o el nombre.
@@ -145,23 +144,50 @@ def update_order():
     data = frappe.request.get_json()
     if not data:
         frappe.throw(_("No se recibió información"))
+
     order_name = data.get("name")
     if not order_name:
         frappe.throw(_("Falta el campo 'name' de la orden"))
 
     company = get_user_company()
     order = frappe.get_doc("orders", order_name)
+
     if order.company_id != company:
         frappe.throw(_("No tienes permiso para modificar esta orden"))
 
-    updatable = ["alias","email","estado","items","payments","subtotal","iva","total"]
-    for f in updatable:
+    # 1) Campos simples de cabecera
+    for f in ["alias", "email", "estado", "subtotal", "iva", "total"]:
         if f in data:
             setattr(order, f, data[f])
+
+    # 2) Items (child table) -> usar append, no asignar dicts
+    if "items" in data:
+        order.set("items", [])  # limpia filas actuales
+        for r in (data.get("items") or []):
+            order.append("items", {
+                "product":  r.get("product"),     # Link a Producto (name)
+                "qty":      r.get("qty"),
+                "rate":     r.get("rate"),
+                "tax":      r.get("tax"),         # Link a taxes (opcional)
+                "total":    r.get("total"),       # subtotal SIN IVA
+                "tax_rate": r.get("tax_rate"),    # 0 / 15
+            })
+
+    # 3) Payments (si los mandas)
+    if "payments" in data:
+        order.set("payments", [])
+        for p in (data.get("payments") or []):
+            order.append("payments", {
+                # ajusta a los fieldnames reales de tu child de pagos
+                "method": p.get("method"),
+                "amount": p.get("amount"),
+                "code":   p.get("code"),
+            })
 
     order.save()
     frappe.db.commit()
     return {"message": _("Orden actualizada exitosamente"), "order": order.name}
+
 
 @frappe.whitelist()
 def get_order_with_details(order_name):
@@ -525,6 +551,7 @@ def create_order_v2():
         "type_orden": data.get("type_orden", "Servirse"),
         "delivery_address": data.get("delivery_address", None),
         "delivery_phone": data.get("delivery_phone", None),
+        
     })
     doc.insert()  # aún no commit
 
@@ -552,14 +579,31 @@ def create_order_v2():
 
 # Crear factura desde la orden NEW SERVICIO
 @frappe.whitelist()
-def create_and_emit_from_ui_v2_from_order(order_name: str):
+def create_and_emit_from_ui_v2_from_order(order_name: str , customer = None):
     order = frappe.get_doc("orders", order_name)
+    # if customer and customer != order.customer:
+    #     order.customer = customer
+    #     order.estado = "Factura"
+    #     order.email = _safe_customer_info(customer)["correo"]
+    #     order.save(ignore_permissions=True)
+    #     frappe.db.commit()
+        
     existing = frappe.get_all("Sales Invoice", filters={"order": order.name, "docstatus": ["!=", 2]}, pluck="name")
     if existing:
         return {"status": "exists", "invoice": existing[0]}
 
     company_name = get_user_company()
     company = frappe.get_doc("Company", company_name)
+    
+    ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
+
+    if ambiente == "PRUEBAS":
+        environment = "Pruebas"
+    elif ambiente == "PRODUCCION":
+        environment = "Producción"
+    else:
+        environment = None
+
     inv = frappe.new_doc("Sales Invoice")
     inv.update({
         "order": order.name,
@@ -574,6 +618,7 @@ def create_and_emit_from_ui_v2_from_order(order_name: str):
         "secuencial": getattr(company, "secuencial", None), 
         "einvoice_status": "BORRADOR",
         "status": "BORRADOR",
+        "environment" : environment,
     })
     for it in order.items or []:
         inv.append("items", {
