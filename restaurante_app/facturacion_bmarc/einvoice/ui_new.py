@@ -239,7 +239,14 @@ def create_and_emit_from_ui_v2():
     data = frappe.request.get_json() or {}
     if not data.get("customer"):
         frappe.throw(_("Falta el cliente"))
+    order_name = data.get("order_name") or None     
 
+    if order_name:
+        order = frappe.get_doc("orders", order_name)
+        order.estado = "Factura"
+        order.customer = data.get("customer")
+        order.save(ignore_permissions=True)
+        frappe.db.commit()
     company_name = frappe.db.get_default("company") or frappe.get_all("Company", limit=1)[0].name
     company = frappe.get_doc("Company", company_name)
     ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
@@ -272,6 +279,7 @@ def create_and_emit_from_ui_v2():
         "einvoice_status": "BORRADOR",
         "environment" : environment,
         "status": "BORRADOR",
+        "order": order_name or None
     })
 
     for it in (data.get("items") or []):
