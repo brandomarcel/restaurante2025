@@ -15,6 +15,7 @@ from restaurante_app.facturacion_bmarc.api.open_factura_client import (
 )
 from restaurante_app.facturacion_bmarc.einvoice.edocs import sri_estado_and_update_data
 
+from frappe.realtime import get_doctype_room
 
 def meta_has_field(doctype: str, fieldname: str) -> bool:
     try:
@@ -537,7 +538,7 @@ def create_order_v2():
     company = get_user_company()
 
     doc = frappe.get_doc({
-        "doctype": "orders",
+        "doctype": "orders",                   # 👈 tu DocType exacto (minúsculas)
         "customer": data.get("customer"),
         "alias": data.get("alias"),
         "email": data.get("email"),
@@ -549,31 +550,49 @@ def create_order_v2():
         "company_id": company,
         "estado": data.get("estado", "Nota Venta"),
         "type_orden": data.get("type_orden", "Servirse"),
-        "delivery_address": data.get("delivery_address", None),
-        "delivery_phone": data.get("delivery_phone", None),
-        
+        "delivery_address": data.get("delivery_address"),
+        "delivery_phone": data.get("delivery_phone"),
     })
-    doc.insert()  # aún no commit
 
-    # ¿El front pidió facturar?
-    issue_invoice = bool(data.get("estado") == "Factura")
-    if issue_invoice:
-        # Encola la facturación para ejecutarse después del commit de esta transacción
-        frappe.enqueue(
-            "restaurante_app.restaurante_bmarc.doctype.orders.orders.create_and_emit_from_ui_v2_from_order",
-            queue="short",
-            job_name=f"einvoice-for-{doc.name}",
-            order_name=doc.name,
-            enqueue_after_commit=True,
+    try:
+        doc.insert()  # si necesitas permisos: doc.insert(ignore_permissions=True)
+
+        # 🔔 Eventos realtime (se enviarán DESPUÉS del commit)
+        frappe.publish_realtime(
+            event="list_update",
+            message={"doctype": doc.doctype, "name": doc.name},   # doctype = "orders"
+            room=get_doctype_room(doc.doctype),                   # room "doctype:orders"
+            after_commit=True
+        )
+        frappe.publish_realtime(
+            event="order_created",
+            message=doc.as_dict(),                                # doc completo (opcional)
+            room=get_doctype_room(doc.doctype),
+            after_commit=True
         )
 
-    frappe.db.commit()  # confirma la orden (y dispara la cola si se pidió)
+        # ¿Facturar?
+        issue_invoice = (data.get("estado") == "Factura")
+        if issue_invoice:
+            frappe.enqueue(
+                "restaurante_app.restaurante_bmarc.doctype.orders.orders.create_and_emit_from_ui_v2_from_order",
+                queue="short",
+                job_name=f"einvoice-for-{doc.name}",
+                order_name=doc.name,
+                enqueue_after_commit=True,
+            )
 
-    return {
-        "message": _("Orden creada exitosamente"),
-        "name": doc.name,
-        "sri": {"status": "Queued" if issue_invoice else "Sin factura"}
-    }
+        frappe.db.commit()  # 🔐 dispara after_commit y la cola
+        return {
+            "message": _("Orden creada exitosamente"),
+            "name": doc.name,
+            "sri": {"status": "Queued" if issue_invoice else "Sin factura"}
+        }
+
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "create_order_v2 failed")
+        frappe.throw(_("No se pudo crear la orden"))
     
     
 
