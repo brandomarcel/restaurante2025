@@ -29,6 +29,30 @@ class orders(Document):
         if self.customer and not frappe.db.exists("Cliente", self.customer):
             frappe.throw(_("El Cliente '{0}' no existe.").format(self.customer))
         self.calculate_totals()
+    def after_insert(self):
+        # nuevo documento
+        frappe.publish_realtime(
+            event="brando_conect",
+            message={"doctype": "orders", "name": self.name, "_action": "insert"},
+            after_commit=True
+        )
+
+    def on_update(self):
+        # actualización
+        frappe.publish_realtime(
+            event="brando_conect",
+            message={"doctype": "orders", "name": self.name, "_action": "update"},
+            after_commit=True
+        )
+
+    def on_trash(self):
+        # eliminado
+        frappe.publish_realtime(
+            event="brando_conect",
+            message={"doctype": "orders", "name": self.name, "_action": "delete"},
+            after_commit=True
+        )
+
 
     def calculate_totals(self):
         subtotal = 0.0
@@ -58,6 +82,7 @@ class orders(Document):
         self.company_contabilidad = "SI" if company.get("obligado_a_llevar_contabilidad") else "NO"
 
         return {"doc": self}
+    
 
 # ========== HELPERS ==========
 def _safe_customer_info(customer: str) -> dict:
@@ -557,17 +582,9 @@ def create_order_v2():
     try:
         doc.insert()  # si necesitas permisos: doc.insert(ignore_permissions=True)
 
-        # 🔔 Eventos realtime (se enviarán DESPUÉS del commit)
         frappe.publish_realtime(
-            event="list_update",
-            message={"doctype": doc.doctype, "name": doc.name},   # doctype = "orders"
-            room=get_doctype_room(doc.doctype),                   # room "doctype:orders"
-            after_commit=True
-        )
-        frappe.publish_realtime(
-            event="order_created",
+            event="brando_conect",
             message=doc.as_dict(),                                # doc completo (opcional)
-            room=get_doctype_room(doc.doctype),
             after_commit=True
         )
 
