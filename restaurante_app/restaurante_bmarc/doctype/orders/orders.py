@@ -24,35 +24,39 @@ def meta_has_field(doctype: str, fieldname: str) -> bool:
     except Exception:
         return False
 
+# orders.py
 class orders(Document):
     def before_save(self):
         if self.customer and not frappe.db.exists("Cliente", self.customer):
             frappe.throw(_("El Cliente '{0}' no existe.").format(self.customer))
         self.calculate_totals()
-    def after_insert(self):
-        # nuevo documento
+
+    def _publish(self, action: str):
+        company_id = getattr(self, "company_id", None) or "DEFAULT"
+
         frappe.publish_realtime(
             event="brando_conect",
-            message={"doctype": "orders", "name": self.name,"data": self.as_dict(), "_action": "insert"},
+            message={
+                "doctype": "orders",
+                "name": self.name,
+                "data": self.as_dict(),
+                "_action": action,
+                "company": company_id,   # 👈 manda la empresa en el payload
+            },
+            doctype="orders",              # 👈 usa el parámetro doctype
             after_commit=True
         )
 
+
+    def after_insert(self):
+        self._publish("insert")
 
     def on_update(self):
-        # actualización
-        frappe.publish_realtime(
-            event="brando_conect",
-            message={"doctype": "orders", "name": self.name,"data": self.as_dict(),  "_action": "update"},
-            after_commit=True
-        )
+        self._publish("update")
 
     def on_trash(self):
-        # eliminado
-        frappe.publish_realtime(
-            event="brando_conect",
-            message={"doctype": "orders", "name": self.name,"data": self.as_dict(), "_action": "delete"},
-            after_commit=True
-        )
+        self._publish("delete")
+
 
 
     def calculate_totals(self):
