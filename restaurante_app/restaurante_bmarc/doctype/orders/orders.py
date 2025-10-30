@@ -5,7 +5,7 @@ from frappe import _
 from frappe.utils import flt, today as _today
 from restaurante_app.facturacion_bmarc.doctype.sales_invoice.sales_invoice import queue_einvoice
 from restaurante_app.restaurante_bmarc.api.user import get_user_company
-from restaurante_app.facturacion_bmarc.api.utils import persist_after_emit
+from restaurante_app.facturacion_bmarc.api.utils import persist_after_emit,_parse_dt_or_date
 
 from restaurante_app.facturacion_bmarc.api.open_factura_client import (
     emitir_factura_por_invoice,
@@ -15,7 +15,7 @@ from restaurante_app.facturacion_bmarc.api.open_factura_client import (
 )
 from restaurante_app.facturacion_bmarc.einvoice.edocs import sri_estado_and_update_data
 
-from frappe.realtime import get_doctype_room
+from frappe.utils import flt, cint
 
 def meta_has_field(doctype: str, fieldname: str) -> bool:
     try:
@@ -24,34 +24,51 @@ def meta_has_field(doctype: str, fieldname: str) -> bool:
     except Exception:
         return False
 
+def users_for_company(company: str) -> list[str]:
+    rows = frappe.get_all(
+        "User Permission",
+        filters={"allow": "Company", "for_value": company},
+        fields=["user"]
+    )
+    return [r.user for r in rows]
+
+# orders.py
 class orders(Document):
     def before_save(self):
         if self.customer and not frappe.db.exists("Cliente", self.customer):
             frappe.throw(_("El Cliente '{0}' no existe.").format(self.customer))
         self.calculate_totals()
+
+    def _publish_to_company_users(self, action: str):
+        company = getattr(self, "company_id", None) or getattr(self, "empresa", None) or "DEFAULT"
+        msg = {
+            "doctype": "orders",
+            "name": self.name,
+            "data": self.as_dict(),
+            "_action": action,
+            "company": company,
+            "user":  users_for_company(company)
+        }
+        ev = f"brando_conect:company:{company}"
+        for user in users_for_company(company):
+            frappe.publish_realtime(
+                event=ev, 
+                message=msg, 
+                user=user, 
+                after_commit=True
+            )
+
+
+
     def after_insert(self):
-        # nuevo documento
-        frappe.publish_realtime(
-            event="brando_conect",
-            message={"doctype": "orders", "name": self.name, "_action": "insert"},
-            after_commit=True
-        )
+        self._publish_to_company_users("insert")
 
     def on_update(self):
-        # actualización
-        frappe.publish_realtime(
-            event="brando_conect",
-            message={"doctype": "orders", "name": self.name, "_action": "update"},
-            after_commit=True
-        )
+        self._publish_to_company_users("update")
 
     def on_trash(self):
-        # eliminado
-        frappe.publish_realtime(
-            event="brando_conect",
-            message={"doctype": "orders", "name": self.name, "_action": "delete"},
-            after_commit=True
-        )
+        self._publish_to_company_users("delete")
+
 
 
     def calculate_totals(self):
@@ -263,7 +280,7 @@ def get_order_with_details(order_name):
 
     return {
         "name": order.name,
-        "status": getattr(order, "workflow_state", "open"),
+        "status": getattr(order, "status"),
         "type": getattr(order, "estado", "venta"),
         "createdAt": order.creation,
         "subtotal": order.subtotal,
@@ -291,34 +308,72 @@ def _get_invoice_status_for_order(order_name: str):
     }
 
 @frappe.whitelist()
-def get_all_orders(limit=10, offset=0):
+def get_all_orders(limit=10, offset=0, created_from=None, created_to=None, order="desc", status=None):
+    """
+    Trae órdenes con filtros por empresa, alcance (manager/cajero) y rango de creación opcional.
+    Parámetros:
+      - limit: int
+      - offset: int
+      - created_from: 'YYYY-MM-DD' o 'YYYY-MM-DD HH:mm:ss' o ISO-like
+      - created_to:   'YYYY-MM-DD' o 'YYYY-MM-DD HH:mm:ss' o ISO-like
+      - order: 'asc' | 'desc' (por creation)
+    """
+
     if not frappe.has_permission("orders", "read"):
         frappe.throw(_("No tienes permiso para ver órdenes"))
 
-    limit = int(limit); offset = int(offset)
+    limit = cint(limit); offset = cint(offset)
     company = get_user_company()
 
     roles = set(frappe.get_roles(frappe.session.user))
     is_manager = "Gerente" in roles
     is_cashier = ("Cajero" in roles) and not is_manager
 
-    filters = {"company_id": company}
+    # -------- Filtros base --------
+    # Usamos lista de filtros para poder añadir BETWEEN en 'creation'
+    filters = [
+        ["orders", "company_id", "=", company],
+        ["orders", "docstatus", "!=", 2],
+    ]
+
     if is_cashier:
         if meta_has_field("orders", "created_by"):
-            filters["created_by"] = frappe.session.user
+            filters.append(["orders", "created_by", "=", frappe.session.user])
         elif meta_has_field("orders", "usuario"):
-            filters["usuario"] = frappe.session.user
+            filters.append(["orders", "usuario", "=", frappe.session.user])
         else:
-            filters["owner"] = frappe.session.user
+            filters.append(["orders", "owner", "=", frappe.session.user])
 
+    # -------- Filtro por rango de creación (opcional) --------
+    dt_from = _parse_dt_or_date(created_from, is_start=True)
+    dt_to = _parse_dt_or_date(created_to, is_start=False)
+    
+    # opcional: filtrar por estado si viene en querystring
+    if status:
+        filters.append(["orders", "status", "=", status])
+
+
+    if dt_from and dt_to:
+        filters.append(["orders", "creation", "between", [dt_from, dt_to]])
+    elif dt_from:
+        filters.append(["orders", "creation", ">=", dt_from])
+    elif dt_to:
+        filters.append(["orders", "creation", "<=", dt_to])
+
+    # -------- Orden --------
+    order = (order or "desc").lower()
+    order_by = "creation asc" if order == "asc" else "creation desc"
+
+    # -------- Conteo total --------
     total_orders = frappe.db.count("orders", filters=filters)
 
+    # -------- Paginación: nombres --------
     order_names = frappe.get_all(
         "orders",
         filters=filters,
         limit=limit,
         start=offset,
-        order_by="creation desc",
+        order_by=order_by,
         pluck="name",
     )
 
@@ -329,7 +384,13 @@ def get_all_orders(limit=10, offset=0):
             "total": total_orders,
             "limit": limit,
             "offset": offset,
-            "filters": {"company_id": company, "scope": "all" if is_manager else "mine"},
+            "filters": {
+                "company_id": company,
+                "scope": "all" if is_manager else "mine",
+                "created_from": created_from,
+                "created_to": created_to,
+                "order": order,
+            },
         }
 
     # ---------- Prefetch: Facturas por orden ----------
@@ -375,14 +436,14 @@ def get_all_orders(limit=10, offset=0):
     # Armar items por orden
     items_by_order = {}
     for r in order_item_rows:
-        order = r["parent"]
+        order_name = r["parent"]
         qty = flt(r.get("qty"))
         rate = flt(r.get("rate"))
         tax_rate = flt(r.get("tax_rate") if r.get("tax_rate") is not None else taxes_map.get(r.get("tax"), 0))
         subtotal = flt(qty * rate)
         iva = flt(subtotal * (tax_rate / 100.0))
         total = flt(subtotal + iva)
-        items_by_order.setdefault(order, []).append({
+        items_by_order.setdefault(order_name, []).append({
             "productId": r.get("product"),
             "productName": product_map.get(r.get("product"), r.get("product")),
             "quantity": qty,
@@ -443,15 +504,17 @@ def get_all_orders(limit=10, offset=0):
         cust = _safe_customer_info(doc.customer)
         data.append({
             "name": doc.name,
+            "status": doc.status,
             "type": getattr(doc, "estado", "venta"),
-            "createdAt": doc.creation,
+            "createdAt": doc.creation,             # 👈 ya lo devolvías
+            "createdAtISO": str(doc.creation).replace(" ", "T"),  # 👈 agregado para el front (ISO-like)
             "subtotal": doc.subtotal,
             "iva": doc.iva,
             "total": doc.total,
             "customer": cust or {},
             "sri": sri,
             "usuario": doc.owner,
-            "items": items,   # ← aquí van los productos (de la factura si existe; si no, de la orden)
+            "items": items,
         })
 
     return {
@@ -459,7 +522,13 @@ def get_all_orders(limit=10, offset=0):
         "total": total_orders,
         "limit": limit,
         "offset": offset,
-        "filters": {"company_id": company, "scope": "all" if is_manager else "mine"},
+        "filters": {
+            "company_id": company,
+            "scope": "all" if is_manager else "mine",
+            "created_from": created_from,
+            "created_to": created_to,
+            "order": order,
+        },
     }
 
 @frappe.whitelist()
@@ -582,11 +651,11 @@ def create_order_v2():
     try:
         doc.insert()  # si necesitas permisos: doc.insert(ignore_permissions=True)
 
-        frappe.publish_realtime(
-            event="brando_conect",
-            message=doc.as_dict(),                                # doc completo (opcional)
-            after_commit=True
-        )
+        # frappe.publish_realtime(
+        #     event="brando_conect",
+        #     message={"doc":doc.as_dict(), "_action": 'desde_ui'},                                # doc completo (opcional)
+        #     after_commit=True
+        # )
 
         # ¿Facturar?
         issue_invoice = (data.get("estado") == "Factura")
@@ -712,5 +781,48 @@ def create_and_emit_from_ui_v2_from_order(order_name: str , customer = None):
         "messages": api_result.get("messages") or [],
         "authorization": api_result.get("authorization"),
     }
+
+
+@frappe.whitelist()
+def set_order_status(name: str, status: str):
+    """
+    Cambia el estado de una orden respetando el flujo:
+    Ingresada -> Preparación -> Cerrada
+    """
+    if not name or not status:
+        frappe.throw(_("Parámetros inválidos"))
+
+    # permisos básicos de lectura/escritura
+    if not frappe.has_permission("orders", "write"):
+        frappe.throw(_("No tienes permiso para modificar órdenes"))
+
+    doc = frappe.get_doc("orders", name)
+    prev = doc.status
+    status = str(status).strip()
+
+    valid = {
+        None: {"Ingresada"},
+        "Ingresada": {"Preparación"},
+        "Preparación": {"Cerrada"},
+        "Cerrada": set(),
+    }
+
+    allowed = valid.get(prev, set())
+    if status not in allowed:
+        frappe.throw(_("Transición no permitida: {0} → {1}").format(prev or "—", status))
+
+    doc.status = status
+    doc.save(ignore_permissions=False)  # respeta permisos
+    frappe.db.commit()
+
+    # realtime (on_update también se emitirá, pero reforzamos)
+    frappe.publish_realtime(
+        event="brando_conect",
+        message={"doctype": "orders", "name": doc.name, "_action": "update", "changed": {"estado_orden": status}},
+        doctype="orders",
+        after_commit=True
+    )
+
+    return {"ok": True, "name": doc.name, "estado_orden": doc.status}
 
 

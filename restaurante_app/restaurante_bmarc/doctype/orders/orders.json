@@ -11,6 +11,7 @@
   "alias",
   "email",
   "estado",
+  "status",
   "items",
   "subtotal",
   "iva",
@@ -226,12 +227,22 @@
    "fieldname": "delivery_phone",
    "fieldtype": "Data",
    "label": "Tel\u00e9fono Envi\u00f3"
+  },
+  {
+   "default": "Ingresada",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Estado Orden",
+   "options": "Ingresada\nPreparaci\u00f3n\nCerrada"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-07 23:25:43.038898",
+ "modified": "2025-10-27 23:54:09.336634",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "orders",

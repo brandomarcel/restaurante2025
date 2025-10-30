@@ -10,6 +10,8 @@ from typing import Optional, Tuple, Dict
 from restaurante_app.restaurante_bmarc.api.sendFactura import enviar_factura_sales_invoice,enviar_factura_nota_credito 
 import base64
 from frappe.utils.file_manager import save_file
+from frappe.utils import flt, cint, get_datetime, getdate
+from datetime import datetime, time, timedelta
 # =========================
 # Números / formato
 # =========================
@@ -432,3 +434,26 @@ def _is_consumidor_final(cliente_name: str) -> bool:
     # Normaliza por si viene con mayúsculas/minúsculas o espacios
     tipo = (frappe.db.get_value("Cliente", cliente_name, "tipo_identificacion") or "").strip().lower()
     return tipo.startswith("07") or "consumidor final" in tipo
+
+def _parse_dt_or_date(s, is_start=True):
+        """Acepta 'YYYY-MM-DD' o fecha-hora (con ' ' o 'T').
+           Si solo viene fecha -> usa 00:00:00 para inicio, 23:59:59.999999 para fin.
+        """
+        if not s:
+            return None
+        s = str(s).strip().replace("T", " ")
+        # ¿solo fecha?
+        try:
+            d = datetime.strptime(s, "%Y-%m-%d")
+            if is_start:
+                return datetime.combine(d.date(), time.min)
+            else:
+                # fin de día inclusivo
+                return datetime.combine(d.date(), time.max)
+        except Exception:
+            pass
+        # intentar parseo de fecha-hora
+        try:
+            return get_datetime(s)
+        except Exception:
+            return None
