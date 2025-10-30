@@ -24,6 +24,14 @@ def meta_has_field(doctype: str, fieldname: str) -> bool:
     except Exception:
         return False
 
+def users_for_company(company: str) -> list[str]:
+    rows = frappe.get_all(
+        "User Permission",
+        filters={"allow": "Company", "for_value": company},
+        fields=["user"]
+    )
+    return [r.user for r in rows]
+
 # orders.py
 class orders(Document):
     def before_save(self):
@@ -31,31 +39,35 @@ class orders(Document):
             frappe.throw(_("El Cliente '{0}' no existe.").format(self.customer))
         self.calculate_totals()
 
-    def _publish(self, action: str):
-        company_id = getattr(self, "company_id", None) or "DEFAULT"
+    def _publish_to_company_users(self, action: str):
+        company = getattr(self, "company_id", None) or getattr(self, "empresa", None) or "DEFAULT"
+        msg = {
+            "doctype": "orders",
+            "name": self.name,
+            "data": self.as_dict(),
+            "_action": action,
+            "company": company,
+            "user":  users_for_company(company)
+        }
+        ev = f"brando_conect:company:{company}"
+        for user in users_for_company(company):
+            frappe.publish_realtime(
+                event=ev, 
+                message=msg, 
+                user=user, 
+                after_commit=True
+            )
 
-        frappe.publish_realtime(
-            event="brando_conect",
-            message={
-                "doctype": "orders",
-                "name": self.name,
-                "data": self.as_dict(),
-                "_action": action,
-                "company": company_id,   # 👈 manda la empresa en el payload
-            },
-            doctype="orders",              # 👈 usa el parámetro doctype
-            after_commit=True
-        )
 
 
     def after_insert(self):
-        self._publish("insert")
+        self._publish_to_company_users("insert")
 
     def on_update(self):
-        self._publish("update")
+        self._publish_to_company_users("update")
 
     def on_trash(self):
-        self._publish("delete")
+        self._publish_to_company_users("delete")
 
 
 
