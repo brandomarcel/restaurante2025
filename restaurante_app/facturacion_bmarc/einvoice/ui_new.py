@@ -14,7 +14,7 @@ from restaurante_app.facturacion_bmarc.api.open_factura_client import (
     
 )
 from restaurante_app.facturacion_bmarc.einvoice.edocs import sri_estado_and_update_data
-
+from restaurante_app.restaurante_bmarc.api.user import get_user_company
 # Si ya moviste estos helpers a una nueva utils, impórtalos.
 # Para que sea auto-contenido, dejo versiones locales simples.
 def _to_decimal(v) -> Decimal:
@@ -247,7 +247,7 @@ def create_and_emit_from_ui_v2():
         order.customer = data.get("customer")
         order.save(ignore_permissions=True)
         frappe.db.commit()
-    company_name = frappe.db.get_default("company") or frappe.get_all("Company", limit=1)[0].name
+    company_name = get_user_company()
     company = frappe.get_doc("Company", company_name)
     ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
 
