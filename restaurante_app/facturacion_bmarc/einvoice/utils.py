@@ -63,7 +63,9 @@ def generar_clave_acceso(fechaEmision, tipo_comprobante, ruc_emisor, tipo_ambien
 def obtener_ambiente(company) -> str:
     """Devuelve '1' (pruebas) o '2' (producción) para SRI."""
     return "2" if (getattr(company, "ambiente", "") == "PRODUCCION") else "1"
-
+def puede_facturar(companyID) -> bool:
+    company = frappe.get_doc("Company", companyID)
+    return bool(company.urlfirma and company.clave)
 def obtener_y_actualizar_secuencial(company_name: str) -> str:
     """
     Reserva y retorna el secuencial (formato 9 dígitos) según el ambiente de la Company,

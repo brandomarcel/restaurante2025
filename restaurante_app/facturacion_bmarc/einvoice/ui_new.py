@@ -15,6 +15,7 @@ from restaurante_app.facturacion_bmarc.api.open_factura_client import (
 )
 from restaurante_app.facturacion_bmarc.einvoice.edocs import sri_estado_and_update_data
 from restaurante_app.restaurante_bmarc.api.user import get_user_company
+from restaurante_app.facturacion_bmarc.einvoice.utils import puede_facturar
 # Si ya moviste estos helpers a una nueva utils, impórtalos.
 # Para que sea auto-contenido, dejo versiones locales simples.
 def _to_decimal(v) -> Decimal:
@@ -239,17 +240,20 @@ def create_and_emit_from_ui_v2():
     data = frappe.request.get_json() or {}
     if not data.get("customer"):
         frappe.throw(_("Falta el cliente"))
-    order_name = data.get("order_name") or None     
-
+    
+    
+    company_name = get_user_company()
+    if not puede_facturar(company_name):
+        frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
+    ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
+    order_name = data.get("order_name") or None
+    company = frappe.get_doc("Company", company_name)     
     if order_name:
         order = frappe.get_doc("orders", order_name)
         order.estado = "Factura"
         order.customer = data.get("customer")
         order.save(ignore_permissions=True)
         frappe.db.commit()
-    company_name = get_user_company()
-    company = frappe.get_doc("Company", company_name)
-    ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
 
     if ambiente == "PRUEBAS":
         environment = "Pruebas"
@@ -381,6 +385,10 @@ def emit_existing_invoice_v2(invoice_name: str):
 @frappe.whitelist(methods=["POST"], allow_guest=True)
 def emit_credit_note_v2(invoice_name: str, motivo: str):
     
+    company_name = get_user_company()
+    # frappe.throw(_(puede_facturar(company_name)))
+    if not puede_facturar(company_name):
+        frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
     
 
     if not invoice_name or not motivo:
@@ -390,7 +398,6 @@ def emit_credit_note_v2(invoice_name: str, motivo: str):
         frappe.throw("La factura ya fue anulada.")
     if _is_consumidor_final(data.customer) :
         frappe.throw(_(f"No se puede anular una factura para un Consumidor Final"))
-    company_name = frappe.db.get_default("company") or frappe.get_all("Company", limit=1)[0].name
     company = frappe.get_doc("Company", company_name)
     ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
     if ambiente == "PRUEBAS":

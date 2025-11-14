@@ -144,7 +144,7 @@ def _get_certificate(company) -> Dict[str, str]:
     p12_pwd = getattr(company, "clave", None)    or os.environ.get("OPEN_FACTURA_CERT_PASSWORD")
 
     if not p12_src or not p12_pwd:
-        frappe.throw("Configura el certificado SRI (urlfirma y clave en Company o variables de entorno).")
+        frappe.throw("No puede facturar, no tiene registrada la firma electronica")
 
     abs_path = _resolve_fs_path(p12_src)
 
