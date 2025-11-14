@@ -587,7 +587,107 @@ def create_order_v2():
         frappe.log_error(frappe.get_traceback(), "create_order_v2 failed")
         frappe.throw(_("No se pudo crear la orden"))
     
+
+# Crear factura desde la orden NEW SERVICIO
+@frappe.whitelist()
+def create_and_emit_from_ui_v2_from_order(order_name: str , customer = None):
+    order = frappe.get_doc("orders", order_name)
+    # if customer and customer != order.customer:
+    #     order.customer = customer
+    #     order.estado = "Factura"
+    #     order.email = _safe_customer_info(customer)["correo"]
+    #     order.save(ignore_permissions=True)
+    #     frappe.db.commit()
+        
+    existing = frappe.get_all("Sales Invoice", filters={"order": order.name, "docstatus": ["!=", 2]}, pluck="name")
+    if existing:
+        return {"status": "exists", "invoice": existing[0]}
+
+    company_name = get_user_company()
+    company = frappe.get_doc("Company", company_name)
     
+    ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
+
+    if ambiente == "PRUEBAS":
+        environment = "Pruebas"
+    elif ambiente == "PRODUCCION":
+        environment = "Producción"
+    else:
+        environment = None
+
+    inv = frappe.new_doc("Sales Invoice")
+    inv.update({
+        "order": order.name,
+        "company": order.company_id,
+        "customer": order.customer,
+        "customer_name": _safe_customer_info(order.customer)["nombre"] ,
+        "customer_tax_id":  _safe_customer_info(order.customer)["num_identificacion"],
+        "customer_email": _safe_customer_info(order.customer)["correo"],
+        "posting_date": frappe.utils.today(),
+        "estab": company.establishmentcode or "001",
+        "ptoemi": company.emissionpoint or "001",
+        "secuencial": getattr(company, "secuencial", None), 
+        "einvoice_status": "BORRADOR",
+        "status": "BORRADOR",
+        "environment" : environment,
+    })
+    for it in order.items or []:
+        inv.append("items", {
+            "item_code": it.product,
+            "item_name": _safe_product_name(it.product),
+            "qty": flt(it.qty),
+            "rate": flt(it.rate),
+            "tax_rate": flt(frappe.get_value("taxes", it.tax, "value") or 0)
+        })
+    
+
+    # (opcional) payments
+    # if order.get("payments"):
+    #     for p in order.payments:
+    #         row = inv.append("payments", {})
+    #         row.forma_pago = p.get("formas_de_pago")
+    inv.insert(ignore_permissions=True)
+            
+    # cache link en la orden (opcional)
+    if frappe.db.has_column("orders", "sales_invoice"):
+        frappe.db.set_value("orders", order.name, "sales_invoice", inv.name)
+    api_result = emitir_factura_por_invoice(inv.name)
+
+    # 3) Persistir resultado
+    persist_after_emit(inv, api_result, "factura")
+    
+    if api_result.get("status") != "AUTHORIZED":
+        
+        sri_estado_result = sri_estado_and_update_data(inv.name)
+        
+        if sri_estado_result.get("status") == "AUTHORIZED":
+            return {
+                    "invoice": inv.name,
+                    "status": sri_estado_result.get("status"),
+                    "access_key": sri_estado_result.get("accessKey"),
+                    "messages": sri_estado_result.get("messages") or [],
+                    "authorization": sri_estado_result.get("authorization"),
+                    }
+        else:
+            # Encola la facturación para ejecutarse después del commit de esta transacción
+            frappe.enqueue(
+                "restaurante_app.facturacion_bmarc.einvoice.edocs.sri_estado_and_update_data",
+                queue="long",
+                job_name=f"einvoice-for-{inv.name}",
+                enqueue_after_commit=True,
+                timeout=3,
+                invoice_name=inv.name
+                
+            )
+
+    return {
+        "invoice": inv.name,
+        "status": api_result.get("status"),
+        "access_key": api_result.get("accessKey"),
+        "messages": api_result.get("messages") or [],
+        "authorization": api_result.get("authorization"),
+    }
+        
 @frappe.whitelist()
 def set_order_status(name: str, status: str):
     """
