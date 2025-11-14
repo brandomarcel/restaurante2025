@@ -245,9 +245,9 @@ def create_and_emit_from_ui_v2():
     company_name = get_user_company()
     if not puede_facturar(company_name):
         frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
-    ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
     order_name = data.get("order_name") or None
     company = frappe.get_doc("Company", company_name)     
+    ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
     if order_name:
         order = frappe.get_doc("orders", order_name)
         order.estado = "Factura"
