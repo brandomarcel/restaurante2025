@@ -9,6 +9,10 @@ def execute(filters=None):
     data = get_data(filters)
     return columns, data
 
+
+# -------------------------------
+# COLUMNS
+# -------------------------------
 def get_columns():
     return [
         {"label": "Producto", "fieldname": "producto", "fieldtype": "Link", "options": "Producto", "width": 200},
@@ -17,6 +21,10 @@ def get_columns():
         {"label": "Cantidad Vendida", "fieldname": "cantidad", "fieldtype": "Float", "width": 150},
     ]
 
+
+# -------------------------------
+# RESOLVE COMPANY
+# -------------------------------
 def _resolve_company(filters):
     company = filters.get("company")
     if not company:
@@ -26,44 +34,43 @@ def _resolve_company(filters):
             frappe.throw(_("Seleccione una compañía para continuar."))
     return company
 
+
+# -------------------------------
+# MAIN QUERY
+# -------------------------------
 def get_data(filters):
     company = _resolve_company(filters)
+
     from_date = filters.get("from_date")
     to_date = filters.get("to_date")
 
-    # Armamos condiciones y parámetros de forma segura
-    conditions = ["o.company_id = %(company)s", "o.docstatus < 2"]
+    # PAGINACIÓN — valores por defecto si no se envían
+    limit = int(filters.get("limit", 50))
+    offset = int(filters.get("offset", 0))
+
+    # Condiciones dinámicas
+    conditions = [
+        "o.company_id = %(company)s",
+        "o.docstatus < 2"
+    ]
     params = {"company": company}
 
     if from_date:
         conditions.append("DATE(o.creation) >= %(from_date)s")
         params["from_date"] = from_date
+
     if to_date:
         conditions.append("DATE(o.creation) <= %(to_date)s")
         params["to_date"] = to_date
 
     where_clause = " AND ".join(conditions)
 
-# result = frappe.db.sql(f"""
-#         SELECT
-#             i.product AS producto,
-#             p.nombre AS nombre_producto,
-#              p.descripcion AS descripcion_producto,
-#             SUM(i.qty) AS cantidad
-#         FROM `taborders` o
-#         JOIN `tabItems` i ON o.name = i.parent
-#         LEFT JOIN `tabProducto` p ON p.name = i.product
-#         WHERE o.docstatus < 2 {conditions}
-#         GROUP BY i.product
-#         ORDER BY cantidad DESC
-#         LIMIT 50
-#     """, as_dict=True)
-
+    # Consulta final con LEFT JOIN
     query = f"""
         SELECT
             i.product AS producto,
-            COALESCE(p.nombre) AS nombre_producto,
-            p.descripcion AS descripcion_producto,
+            COALESCE(p.nombre, '') AS nombre_producto,
+            COALESCE(p.descripcion, '') AS descripcion_producto,
             SUM(i.qty) AS cantidad
         FROM `taborders` o
         JOIN `tabItems` i ON o.name = i.parent
@@ -71,10 +78,7 @@ def get_data(filters):
         WHERE {where_clause}
         GROUP BY i.product, p.nombre, p.descripcion
         ORDER BY cantidad DESC
-        LIMIT 50
+        LIMIT {limit} OFFSET {offset}
     """
 
     return frappe.db.sql(query, params, as_dict=True)
-
-# Ya tienes este helper declarado en tu sistema, lo referenciamos aquí:
-

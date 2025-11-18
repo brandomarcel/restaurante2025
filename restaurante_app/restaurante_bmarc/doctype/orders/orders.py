@@ -731,3 +731,46 @@ def set_order_status(name: str, status: str):
     return {"ok": True, "name": doc.name, "estado_orden": doc.status}
 
 
+@frappe.whitelist()
+def get_product_sales(company, from_date=None, to_date=None, limit=50, offset=0):
+    limit = int(limit or 50)
+    offset = int(offset or 0)
+
+    conditions = ["o.company_id = %(company)s", "o.docstatus < 2"]
+    params = {"company": company}
+
+    if from_date:
+        conditions.append("DATE(o.creation) >= %(from_date)s")
+        params["from_date"] = from_date
+    if to_date:
+        conditions.append("DATE(o.creation) <= %(to_date)s")
+        params["to_date"] = to_date
+
+    where_clause = " AND ".join(conditions)
+
+    data = frappe.db.sql(f"""
+        SELECT
+            i.product AS producto,
+            COALESCE(p.nombre, '') AS nombre_producto,
+            COALESCE(p.descripcion, '') AS descripcion_producto,
+            SUM(i.qty) AS cantidad
+        FROM `taborders` o
+        JOIN `tabItems` i ON o.name = i.parent
+        LEFT JOIN `tabProducto` p ON p.name = i.product
+        WHERE {where_clause}
+        GROUP BY i.product, p.nombre, p.descripcion
+        ORDER BY cantidad DESC
+        LIMIT {limit} OFFSET {offset}
+    """, params, as_dict=True)
+
+    total = frappe.db.sql(f"""
+        SELECT COUNT(DISTINCT i.product)
+        FROM `taborders` o
+        JOIN `tabItems` i ON o.name = i.parent
+        WHERE {where_clause}
+    """, params)[0][0]
+
+    return {
+        "result": data,
+        "total": total
+    }
