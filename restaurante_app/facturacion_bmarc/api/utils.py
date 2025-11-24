@@ -293,50 +293,72 @@ def resolve_serie_y_secuencial(company, inv=None, tipo: str = None) -> Tuple[str
 # ACTUALIZAR DATA SRI
 # =========================
 
-def persist_after_emit(inv, api_result: dict,type_document: str):
-    """Guarda estado, clave de acceso y datos de autorización en la Sales Invoice."""
+def persist_after_emit(inv, api_result: dict, type_document: str):
+    """
+    Guarda estado, clave de acceso y datos de autorización en la Sales Invoice.
+    """
+    STATUS_MAP = {
+        "AUTHORIZED": "AUTORIZADO",
+        "PROCESSING": "EN PROCESO",
+        "NOT_AUTHORIZED": "RECHAZADO"
+    }
+
     status = (api_result.get("status") or "").upper()
+    translated_status = STATUS_MAP.get(status, status)
+
     access_key = api_result.get("accessKey")
+    messages = ", ".join(api_result.get("messages") or []) or ""
+    auth = api_result.get("authorization") or {}
 
     vals = {
-        "einvoice_status": {"AUTHORIZED":"AUTORIZADO","PROCESSING":"EN PROCESO","NOT_AUTHORIZED":"RECHAZADO"}.get(status, status),
-        "status": {"AUTHORIZED":"AUTORIZADO","PROCESSING":"EN PROCESO","NOT_AUTHORIZED":"RECHAZADO"}.get(status, status),
-        "sri_message": ", ".join(api_result.get("messages") or []) or "",
+        "einvoice_status": translated_status,
+        "status": translated_status,
+        "sri_message": messages,
     }
+
     if access_key:
         vals["access_key"] = access_key
+    else:
+        frappe.log_error("Access Key faltante", f"No se recibió accessKey en el api_result para {inv.name}")
 
-    auth = api_result.get("authorization") or {}
     if auth.get("date"):
         vals["authorization_datetime"] = _parse_fecha_autorizacion(auth.get("date"))
     else:
-        vals["last_error_message"] = ", ".join(api_result.get("messages") or []) or ""
+        vals["last_error_message"] = messages
 
-    # Estab/pto/secuencial pueden venir del payload original; asegúrate de dejarlos
-    frappe.log_error("secuencial",access_key[30:39])
-    
+    # Guardar secuencial solo si access_key es válida
+    if access_key and len(access_key) >= 39:
+        secuencial = access_key[30:39]
+        frappe.log_error("secuencial", secuencial)
+        vals.setdefault("secuencial", secuencial)
+    else:
+        frappe.log_error("secuencial", f"Access key inválido o muy corto: {access_key}")
+        vals.setdefault("secuencial", None)
+
+    # Estab y ptoemi desde la factura si existen
     vals.setdefault("estab", getattr(inv, "estab", None))
     vals.setdefault("ptoemi", getattr(inv, "ptoemi", None))
-    vals.setdefault("secuencial", access_key[30:39])
-    
-    frappe.log_error("api_result",api_result)
-    
-    
+
+    frappe.log_error("api_result", api_result)
+
     try:
         inv.db_set(vals, update_modified=False)
     finally:
         frappe.db.commit()
-    
-    if api_result.get("status") == "AUTHORIZED":
+
+    # Enviar XML y correo si fue autorizada
+    if status == "AUTHORIZED":
         try:
-            save_invoice_xmls(inv.name,api_result.get("xml_authorized_base64"),access_key,type_document)
+            save_invoice_xmls(inv.name, api_result.get("xml_authorized_base64"), access_key, type_document)
+
             if type_document == "nota_credito":
-                 enviar_factura_nota_credito(inv.name)
+                enviar_factura_nota_credito(inv.name)
             else:
                 enviar_factura_sales_invoice(inv.name)
-           
+
         except Exception:
-            frappe.log_error(frappe.get_traceback(), "Enviar factura por email falló para {0}".format(inv.name))    
+            frappe.log_error(frappe.get_traceback(), f"Enviar factura por email falló para {inv.name}")
+    
     
 # =========================
 # Fechas SRI
