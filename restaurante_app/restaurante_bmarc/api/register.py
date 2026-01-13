@@ -19,6 +19,10 @@ ROLE_MAP = {
         "role_profile": "CAJERO COMPANY",
         "label": "Cajero",
     },
+    "mesero": {
+        "role_profile": "MESERO COMPANY",
+        "label": "Mesero",
+    },
 }
 @frappe.whitelist(allow_guest=True)   # <-- sin token, sin decorador rate_limit
 def register_tenant_open(

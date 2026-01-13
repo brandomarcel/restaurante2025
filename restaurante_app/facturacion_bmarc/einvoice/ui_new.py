@@ -250,6 +250,9 @@ def create_and_emit_from_ui_v2():
     ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
     if order_name:
         order = frappe.get_doc("orders", order_name)
+        
+        if order.estado == "Factura":
+            frappe.throw(_("La orden ya tiene una factura asociada."))
         order.estado = "Factura"
         order.customer = data.get("customer")
         order.save(ignore_permissions=True)
@@ -279,7 +282,7 @@ def create_and_emit_from_ui_v2():
         "posting_date": frappe.utils.today(),
         "estab": getattr(company, "establishmentcode", None) or "001",
         "ptoemi": getattr(company, "emissionpoint", None) or "001",
-        "secuencial": getattr(company, "secuencial", None), 
+        "secuencial":None, 
         "einvoice_status": "BORRADOR",
         "environment" : environment,
         "status": "BORRADOR",

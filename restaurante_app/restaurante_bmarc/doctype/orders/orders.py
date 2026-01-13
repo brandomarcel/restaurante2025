@@ -286,6 +286,7 @@ def get_all_orders(limit=10, offset=0, created_from=None, created_to=None, order
     roles = set(frappe.get_roles(frappe.session.user))
     is_manager = "Gerente" in roles
     is_cashier = ("Cajero" in roles) and not is_manager
+    is_mesero = ("Mesero" in roles) and not (is_manager or is_cashier)
 
     # -------- Filtros base --------
     # Usamos lista de filtros para poder añadir BETWEEN en 'creation'
@@ -294,7 +295,7 @@ def get_all_orders(limit=10, offset=0, created_from=None, created_to=None, order
         ["orders", "docstatus", "!=", 2],
     ]
 
-    if is_cashier:
+    if is_cashier or is_mesero:
         if meta_has_field("orders", "created_by"):
             filters.append(["orders", "created_by", "=", frappe.session.user])
         elif meta_has_field("orders", "usuario"):
@@ -534,13 +535,19 @@ def create_order_v2():
     if not data:
         frappe.throw(_("No se recibió información"))
     company = get_user_company()
+    if not data.get("customer"):
+        company = frappe.get_doc("Company", company)
+        cons_final = frappe.db.get_value("Cliente", 
+        {"company_id": company.name, "num_identificacion": "9999999999999"}, 
+        "name"
+    )
     
     if issue_invoice and not puede_facturar(company):
         frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
 
     doc = frappe.get_doc({
-        "doctype": "orders",                   # 👈 tu DocType exacto (minúsculas)
-        "customer": data.get("customer"),
+        "doctype": "orders",                
+        "customer": data.get("customer") or cons_final,
         "alias": data.get("alias"),
         "email": data.get("email"),
         "items": data.get("items") or [],

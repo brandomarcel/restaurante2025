@@ -33,7 +33,6 @@ def _get_api_base() -> str:
 def _post_api(path: str, payload: Dict[str, Any], timeout: int = 90) -> Dict[str, Any]:
     """
     Hace POST al micro y estandariza manejo de errores.
-    Lanza frappe.throw con mensajes claros si falla.
     """
     api_url = f"{_get_api_base()}{path}"
     headers = {"Content-Type": "application/json"}

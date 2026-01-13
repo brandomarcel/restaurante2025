@@ -202,11 +202,9 @@ def sri_estado_and_update_data(invoice_name: Optional[str] = None,type: str = No
     Uso: /api/method/tu_app.api.sri_estado?access_key=...&env=test
     """
     if type == "factura":
-        inv = frappe.get_doc("Sales Invoice", invoice_name)
-        frappe.log_error(inv.access_key, "invoice_name Factura")
+        inv = frappe.get_doc("Sales Invoice", invoice_name)     
     else:
         inv = frappe.get_doc("Credit Note", invoice_name)
-        frappe.log_error(inv.access_key, "invoice_name Nota Credito")
     
     if not inv.access_key or len(inv.access_key) != 49 or not inv.access_key.isdigit():
         frappe.throw("Parámetro access_key inválido (debe tener 49 dígitos).")
