@@ -242,7 +242,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-01 17:31:41.112980",
+ "modified": "2026-02-12 22:21:33.654560",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "orders",
@@ -283,6 +283,7 @@
    "read": 1,
    "report": 1,
    "role": "Mesero",
+   "select": 1,
    "share": 1,
    "write": 1
   }

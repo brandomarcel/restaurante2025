@@ -101,23 +101,33 @@ def get_user_roles_and_doctype_permissions(email=None):
         "user_permissions": user_permissions
     }
 
+import frappe
+from frappe import _
+
+
 def get_user_company(user=None):
     if not user:
         user = frappe.session.user
-
-    company = frappe.defaults.get_user_default("company")
+    company = frappe.defaults.get_user_default("Company")
 
     if not company:
-        perms = frappe.get_all(
+        permissions = frappe.get_all(
             "User Permission",
-            filters={"user": user, "allow": "Company"},
-            fields=["for_value"],
-            limit=1
+            filters={
+                "user": user,
+                "allow": "Company"
+            },
+            pluck="for_value"
         )
-        if perms:
-            company = perms[0]["for_value"]
 
+        if permissions:
+            company = permissions[0]
     if not company:
         frappe.throw(_("No se encontró una compañía asignada al usuario"))
+
+    if not frappe.db.exists("Company", company):
+        frappe.throw(_("La compañía asignada no existe"))
+    if not frappe.has_permission("Company", "read", company, user=user):
+        frappe.throw(_("No tiene permisos sobre la compañía {0}").format(company))
 
     return company

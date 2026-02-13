@@ -138,11 +138,11 @@ def _safe_product_name(product):
     except Exception:
         return product
 
-# ========== API POS ==========
-
 @frappe.whitelist()
 def update_order():
+    user = frappe.session.user
     data = frappe.request.get_json()
+
     if not data:
         frappe.throw(_("No se recibió información"))
 
@@ -150,44 +150,104 @@ def update_order():
     if not order_name:
         frappe.throw(_("Falta el campo 'name' de la orden"))
 
-    company = get_user_company()
+    # 🔹 Obtener compañía segura
+    company = get_user_company(user)
+
+    # 🔹 Obtener orden con validación de permisos reales
     order = frappe.get_doc("orders", order_name)
+
+    if not order.has_permission("write"):
+        frappe.throw(_("No tienes permiso para modificar esta orden"))
 
     if order.company_id != company:
         frappe.throw(_("No tienes permiso para modificar esta orden"))
 
-    # 1) Campos simples de cabecera
-    for f in ["alias", "email", "estado", "subtotal", "iva", "total"]:
+    # 🔹 No permitir modificar órdenes ya facturadas
+    if order.estado == "Factura":
+        frappe.throw(_("No se puede modificar una orden ya facturada"))
+
+    # ==========================================================
+    # 1️⃣ Actualizar campos simples
+    # ==========================================================
+    for f in ["alias", "email", "estado"]:
         if f in data:
             setattr(order, f, data[f])
 
-    # 2) Items (child table) -> usar append, no asignar dicts
+    # ==========================================================
+    # 2️⃣ Recalcular Items (NO confiar en frontend)
+    # ==========================================================
     if "items" in data:
-        order.set("items", [])  # limpia filas actuales
-        for r in (data.get("items") or []):
+        items = data.get("items") or []
+
+        if not items:
+            frappe.throw(_("La orden debe tener al menos un item"))
+
+        order.set("items", [])
+
+        subtotal_calc = 0
+        iva_calc = 0
+
+        for r in items:
+            qty = flt(r.get("qty"))
+            rate = flt(r.get("rate"))
+            tax_rate = flt(r.get("tax_rate"))
+
+            line_subtotal = qty * rate
+            line_tax = line_subtotal * (tax_rate / 100)
+
+            subtotal_calc += line_subtotal
+            iva_calc += line_tax
+
             order.append("items", {
-                "product":  r.get("product"),     # Link a Producto (name)
-                "qty":      r.get("qty"),
-                "rate":     r.get("rate"),
-                "tax":      r.get("tax"),         # Link a taxes (opcional)
-                "total":    r.get("total"),       # subtotal SIN IVA
-                "tax_rate": r.get("tax_rate"),    # 0 / 15
+                "product": r.get("product"),
+                "qty": qty,
+                "rate": rate,
+                "tax_rate": tax_rate,
+                "total": line_subtotal,
+                "tax": r.get("tax")
             })
 
-    # 3) Payments (si los mandas)
+        order.subtotal = subtotal_calc
+        order.iva = iva_calc
+        order.total = subtotal_calc + iva_calc
+
+    # ==========================================================
+    # 3️⃣ Validar pagos
+    # ==========================================================
     if "payments" in data:
+        payments = data.get("payments") or []
+
+        if not payments:
+            frappe.throw(_("Debe existir al menos un método de pago"))
+
         order.set("payments", [])
-        for p in (data.get("payments") or []):
+
+        total_paid = 0
+
+        for p in payments:
+            amount = flt(p.get("amount"))
+            total_paid += amount
+
             order.append("payments", {
-                # ajusta a los fieldnames reales de tu child de pagos
                 "method": p.get("method"),
-                "amount": p.get("amount"),
-                "code":   p.get("code"),
+                "amount": amount,
+                "code": p.get("code"),
             })
 
+        # 🔥 Validar que pagos cuadren
+        if round(total_paid, 2) != round(order.total, 2):
+            frappe.throw(_("El total pagado no coincide con el total de la orden"))
+
+    # ==========================================================
+    # Guardar (sin commit manual)
+    # ==========================================================
     order.save()
-    frappe.db.commit()
-    return {"message": _("Orden actualizada exitosamente"), "order": order.name}
+
+    return {
+        "message": _("Orden actualizada exitosamente"),
+        "order": order.name
+    }
+
 
 
 @frappe.whitelist()
@@ -530,72 +590,79 @@ def get_dashboard_metrics():
 
 @frappe.whitelist()
 def create_order_v2():
+    user = frappe.session.user
     data = frappe.request.get_json()
-    issue_invoice = bool(data.get("estado") == "Factura")
+
     if not data:
         frappe.throw(_("No se recibió información"))
-    company = get_user_company()
-    if not data.get("customer"):
-        company = frappe.get_doc("Company", company)
-        cons_final = frappe.db.get_value("Cliente", 
-        {"company_id": company.name, "num_identificacion": "9999999999999"}, 
-        "name"
-    )
-    
-    if issue_invoice and not puede_facturar(company):
-        frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
+
+    company_name = get_user_company(user)
+
+    items = data.get("items") or []
+    payments = data.get("payments") or []
+
+    if not items:
+        frappe.throw(_("La orden debe tener al menos un item"))
+
+    # if not payments:
+    #     frappe.throw(_("Debe existir al menos un método de pago"))
+
+    customer = data.get("customer")
+    if not customer:
+        cons_final = frappe.db.get_value(
+            "Cliente",
+            {
+                "company_id": company_name,
+                "num_identificacion": "9999999999999"
+            },
+            "name"
+        )
+
+        if not cons_final:
+            frappe.throw(_("No se encontró el cliente consumidor final"))
+
+        customer = cons_final
+
+    issue_invoice = (data.get("estado") == "Factura")
+    if issue_invoice and not puede_facturar(company_name):
+        frappe.throw(_("No puede facturar, no tiene registrada la firma electrónica"))
 
     doc = frappe.get_doc({
-        "doctype": "orders",                
-        "customer": data.get("customer") or cons_final,
+        "doctype": "orders",
+        "customer": customer,
         "alias": data.get("alias"),
         "email": data.get("email"),
-        "items": data.get("items") or [],
-        "payments": data.get("payments") or [],
-        "subtotal": data.get("subtotal", 0),
-        "iva": data.get("iva", 0),
-        "total": data.get("total", 0),
-        "company_id": company,
+        "items": items,
+        "payments": payments,
+        "subtotal": flt(data.get("subtotal")),
+        "iva": flt(data.get("iva")),
+        "total": flt(data.get("total")),
+        "company_id": company_name,  
         "estado": data.get("estado", "Nota Venta"),
         "type_orden": data.get("type_orden", "Servirse"),
         "delivery_address": data.get("delivery_address"),
         "delivery_phone": data.get("delivery_phone"),
     })
+    doc.insert()
 
-    try:
-        doc.insert()  # si necesitas permisos: doc.insert(ignore_permissions=True)
+    if issue_invoice:
+        frappe.enqueue(
+            "restaurante_app.restaurante_bmarc.doctype.orders.orders.create_and_emit_from_ui_v2_from_order",
+            queue="short",
+            job_name=f"einvoice-for-{doc.name}",
+            order_name=doc.name,
+            enqueue_after_commit=True,
+        )
 
-        # frappe.publish_realtime(
-        #     event="brando_conect",
-        #     message={"doc":doc.as_dict(), "_action": 'desde_ui'},                                # doc completo (opcional)
-        #     after_commit=True
-        # )
-
-        # ¿Facturar?
-        issue_invoice = (data.get("estado") == "Factura")
-        if issue_invoice:
-            frappe.enqueue(
-                "restaurante_app.restaurante_bmarc.doctype.orders.orders.create_and_emit_from_ui_v2_from_order",
-                queue="short",
-                job_name=f"einvoice-for-{doc.name}",
-                order_name=doc.name,
-                enqueue_after_commit=True,
-            )
-
-        frappe.db.commit()  # 🔐 dispara after_commit y la cola
-        return {
-            "message": _("Orden creada exitosamente"),
-            "name": doc.name,
-            "sri": {"status": "Queued" if issue_invoice else "Sin factura"}
+    return {
+        "message": _("Orden creada exitosamente"),
+        "name": doc.name,
+        "sri": {
+            "status": "Queued" if issue_invoice else "Sin factura"
         }
+    }
 
-    except Exception:
-        frappe.db.rollback()
-        frappe.log_error(frappe.get_traceback(), "create_order_v2 failed")
-        frappe.throw(_("No se pudo crear la orden"))
     
-
-# Crear factura desde la orden NEW SERVICIO
 @frappe.whitelist()
 def create_and_emit_from_ui_v2_from_order(order_name: str , customer = None):
     order = frappe.get_doc("orders", order_name)
