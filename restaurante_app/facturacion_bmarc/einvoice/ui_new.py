@@ -343,46 +343,134 @@ def create_and_emit_from_ui_v2():
         "authorization": api_result.get("authorization"),
     }
 
+# @frappe.whitelist(methods=["POST"], allow_guest=True)
+# def emit_existing_invoice_v2(invoice_name: str):
+#     """Emite una Sales Invoice ya creada (por nombre). Y ADEMS SE PUEDE REENVIAR CORRIGIENDO LOS DATOS DE LA FACTURA """
+#     inv = frappe.get_doc("Sales Invoice", invoice_name)
+#     if inv.status == 'AUTORIZADO':
+#         frappe.throw(_("La factura ya fue autorizada"))
+#     api_result = emitir_factura_por_invoice(invoice_name)
+#     persist_after_emit(inv, api_result,'factura')
+#     if api_result.get("status") != "AUTHORIZED" and api_result.get("status") != "ERROR":
+        
+#         sri_estado_result = sri_estado_and_update_data(inv.name, 'factura')
+        
+#         if sri_estado_result.get("status") != "AUTHORIZED":
+#             return {
+#                     "invoice": inv.name,
+#                     "status": sri_estado_result.get("status"),
+#                     "access_key": sri_estado_result.get("accessKey"),
+#                     "messages": sri_estado_result.get("messages") or [],
+#                     "authorization": sri_estado_result.get("authorization"),
+#                     }
+#         else:
+#             # Encola la facturación para ejecutarse después del commit de esta transacción
+#             frappe.enqueue(
+#                 "restaurante_app.facturacion_bmarc.einvoice.edocs.sri_estado_and_update_data",
+#                 queue="long",
+#                 job_name=f"einvoice-for-{inv.name}",
+#                 enqueue_after_commit=True,
+#                 timeout=3,
+#                 invoice_name=inv.name,
+#                 type='factura'
+                
+#             )
+
+#     return {
+#         "invoice": inv.name,
+#         "status": api_result.get("status"),
+#         "access_key": api_result.get("accessKey"),
+#         "messages": api_result.get("messages") or [],
+#         "authorization": api_result.get("authorization"),
+#     }
+
 @frappe.whitelist(methods=["POST"], allow_guest=True)
 def emit_existing_invoice_v2(invoice_name: str):
-    """Emite una Sales Invoice ya creada (por nombre). Y ADEMS SE PUEDE REENVIAR CORRIGIENDO LOS DATOS DE LA FACTURA """
+    """Emite una Sales Invoice ya creada (por nombre).
+    También permite reenviar corrigiendo los datos de la factura.
+    """
+
     inv = frappe.get_doc("Sales Invoice", invoice_name)
-    if inv.status == 'AUTORIZADO':
+
+    if inv.status == "AUTORIZADO":
         frappe.throw(_("La factura ya fue autorizada"))
+
+    # 1️⃣ Enviar a facturación
     api_result = emitir_factura_por_invoice(invoice_name)
-    persist_after_emit(inv, api_result,'factura')
-    if api_result.get("status") != "AUTHORIZED" and api_result.get("status") != "ERROR":
-        
-        sri_estado_result = sri_estado_and_update_data(inv.name, 'factura')
-        
-        if sri_estado_result.get("status") != "AUTHORIZED":
+
+    # Persistir datos iniciales
+    persist_after_emit(inv, api_result, "factura")
+
+    status = api_result.get("status")
+    messages = api_result.get("messages") or []
+    access_key = api_result.get("accessKey")
+    authorization = api_result.get("authorization")
+
+    # ---------------------------------------------------------
+    # 2️⃣ Si ya está autorizada → retornar directamente
+    # ---------------------------------------------------------
+    if status == "AUTHORIZED":
+        return {
+            "invoice": inv.name,
+            "status": status,
+            "access_key": access_key,
+            "messages": messages,
+            "authorization": authorization,
+        }
+
+    # ---------------------------------------------------------
+    # 3️⃣ Si viene ERROR → verificar si es recuperable
+    # ---------------------------------------------------------
+    if status == "ERROR":
+
+        error_text = " ".join(messages).upper()
+
+        # Caso típico SRI: clave ya registrada
+        if "CLAVE ACCESO REGISTRADA" in error_text:
+            sri_estado_result = sri_estado_and_update_data(inv.name, "factura")
+
             return {
-                    "invoice": inv.name,
-                    "status": sri_estado_result.get("status"),
-                    "access_key": sri_estado_result.get("accessKey"),
-                    "messages": sri_estado_result.get("messages") or [],
-                    "authorization": sri_estado_result.get("authorization"),
-                    }
-        else:
-            # Encola la facturación para ejecutarse después del commit de esta transacción
-            frappe.enqueue(
-                "restaurante_app.facturacion_bmarc.einvoice.edocs.sri_estado_and_update_data",
-                queue="long",
-                job_name=f"einvoice-for-{inv.name}",
-                enqueue_after_commit=True,
-                timeout=3,
-                invoice_name=inv.name,
-                type='factura'
-                
-            )
+                "invoice": inv.name,
+                "status": sri_estado_result.get("status"),
+                "access_key": sri_estado_result.get("accessKey"),
+                "messages": sri_estado_result.get("messages") or [],
+                "authorization": sri_estado_result.get("authorization"),
+            }
+
+        # ❌ Error real → devolver tal cual
+        return {
+            "invoice": inv.name,
+            "status": status,
+            "access_key": access_key,
+            "messages": messages,
+            "authorization": authorization,
+        }
+
+    # ---------------------------------------------------------
+    # 4️⃣ Estados intermedios (RECIBIDA, PROCESANDO, etc.)
+    # ---------------------------------------------------------
+    sri_estado_result = sri_estado_and_update_data(inv.name, "factura")
+
+    # Si ya quedó autorizada → encolar actualización async
+    if sri_estado_result.get("status") == "AUTHORIZED":
+        frappe.enqueue(
+            "restaurante_app.facturacion_bmarc.einvoice.edocs.sri_estado_and_update_data",
+            queue="long",
+            job_name=f"einvoice-for-{inv.name}",
+            enqueue_after_commit=True,
+            timeout=300,
+            invoice_name=inv.name,
+            type="factura",
+        )
 
     return {
         "invoice": inv.name,
-        "status": api_result.get("status"),
-        "access_key": api_result.get("accessKey"),
-        "messages": api_result.get("messages") or [],
-        "authorization": api_result.get("authorization"),
+        "status": sri_estado_result.get("status"),
+        "access_key": sri_estado_result.get("accessKey"),
+        "messages": sri_estado_result.get("messages") or [],
+        "authorization": sri_estado_result.get("authorization"),
     }
+
 
 # (Opcional) Nota de Crédito – cuando ya estés listo
 @frappe.whitelist(methods=["POST"], allow_guest=True)
