@@ -16,8 +16,8 @@ from restaurante_app.facturacion_bmarc.api.open_factura_client import (
 from restaurante_app.facturacion_bmarc.einvoice.edocs import sri_estado_and_update_data
 from restaurante_app.restaurante_bmarc.api.user import get_user_company
 from restaurante_app.facturacion_bmarc.einvoice.utils import puede_facturar
-# Si ya moviste estos helpers a una nueva utils, impórtalos.
-# Para que sea auto-contenido, dejo versiones locales simples.
+
+
 def _to_decimal(v) -> Decimal:
     try:
         return Decimal(str(v))
@@ -343,51 +343,12 @@ def create_and_emit_from_ui_v2():
         "authorization": api_result.get("authorization"),
     }
 
-# @frappe.whitelist(methods=["POST"], allow_guest=True)
-# def emit_existing_invoice_v2(invoice_name: str):
-#     """Emite una Sales Invoice ya creada (por nombre). Y ADEMS SE PUEDE REENVIAR CORRIGIENDO LOS DATOS DE LA FACTURA """
-#     inv = frappe.get_doc("Sales Invoice", invoice_name)
-#     if inv.status == 'AUTORIZADO':
-#         frappe.throw(_("La factura ya fue autorizada"))
-#     api_result = emitir_factura_por_invoice(invoice_name)
-#     persist_after_emit(inv, api_result,'factura')
-#     if api_result.get("status") != "AUTHORIZED" and api_result.get("status") != "ERROR":
-        
-#         sri_estado_result = sri_estado_and_update_data(inv.name, 'factura')
-        
-#         if sri_estado_result.get("status") != "AUTHORIZED":
-#             return {
-#                     "invoice": inv.name,
-#                     "status": sri_estado_result.get("status"),
-#                     "access_key": sri_estado_result.get("accessKey"),
-#                     "messages": sri_estado_result.get("messages") or [],
-#                     "authorization": sri_estado_result.get("authorization"),
-#                     }
-#         else:
-#             # Encola la facturación para ejecutarse después del commit de esta transacción
-#             frappe.enqueue(
-#                 "restaurante_app.facturacion_bmarc.einvoice.edocs.sri_estado_and_update_data",
-#                 queue="long",
-#                 job_name=f"einvoice-for-{inv.name}",
-#                 enqueue_after_commit=True,
-#                 timeout=3,
-#                 invoice_name=inv.name,
-#                 type='factura'
-                
-#             )
-
-#     return {
-#         "invoice": inv.name,
-#         "status": api_result.get("status"),
-#         "access_key": api_result.get("accessKey"),
-#         "messages": api_result.get("messages") or [],
-#         "authorization": api_result.get("authorization"),
-#     }
 
 @frappe.whitelist(methods=["POST"], allow_guest=True)
 def emit_existing_invoice_v2(invoice_name: str):
-    """Emite una Sales Invoice ya creada (por nombre).
-    También permite reenviar corrigiendo los datos de la factura.
+    """
+    Emite una Sales Invoice ya creada (por nombre).
+    Permite reenviar corrigiendo datos.
     """
 
     inv = frappe.get_doc("Sales Invoice", invoice_name)
@@ -395,81 +356,47 @@ def emit_existing_invoice_v2(invoice_name: str):
     if inv.status == "AUTORIZADO":
         frappe.throw(_("La factura ya fue autorizada"))
 
-    # 1️⃣ Enviar a facturación
+    # 1️⃣ Emitir
     api_result = emitir_factura_por_invoice(invoice_name)
 
-    # Persistir datos iniciales
+    # Guardar resultado inicial
     persist_after_emit(inv, api_result, "factura")
 
     status = api_result.get("status")
     messages = api_result.get("messages") or []
-    access_key = api_result.get("accessKey")
-    authorization = api_result.get("authorization")
 
-    # ---------------------------------------------------------
-    # 2️⃣ Si ya está autorizada → retornar directamente
-    # ---------------------------------------------------------
-    if status == "AUTHORIZED":
-        return {
-            "invoice": inv.name,
-            "status": status,
-            "access_key": access_key,
-            "messages": messages,
-            "authorization": authorization,
-        }
+    # =====================================================
+    # CASO 1: AUTORIZADA INMEDIATAMENTE
+    # =====================================================
+    if status == EInvoiceStatus.AUTHORIZED:
+        return build_response(inv.name, api_result)
 
-    # ---------------------------------------------------------
-    # 3️⃣ Si viene ERROR → verificar si es recuperable
-    # ---------------------------------------------------------
-    if status == "ERROR":
+    # =====================================================
+    # CASO 2: ERROR
+    # =====================================================
+    if status == EInvoiceStatus.ERROR:
 
-        error_text = " ".join(messages).upper()
-
-        # Caso típico SRI: clave ya registrada
-        if "CLAVE ACCESO REGISTRADA" in error_text:
+        # Error recuperable → consultar estado
+        if is_recoverable_error(messages):
             sri_estado_result = sri_estado_and_update_data(inv.name, "factura")
 
-            return {
-                "invoice": inv.name,
-                "status": sri_estado_result.get("status"),
-                "access_key": sri_estado_result.get("accessKey"),
-                "messages": sri_estado_result.get("messages") or [],
-                "authorization": sri_estado_result.get("authorization"),
-            }
+            if sri_estado_result.get("status") == EInvoiceStatus.AUTHORIZED:
+                enqueue_status_update(inv.name)
 
-        # ❌ Error real → devolver tal cual
-        return {
-            "invoice": inv.name,
-            "status": status,
-            "access_key": access_key,
-            "messages": messages,
-            "authorization": authorization,
-        }
+            return build_response(inv.name, sri_estado_result)
 
-    # ---------------------------------------------------------
-    # 4️⃣ Estados intermedios (RECIBIDA, PROCESANDO, etc.)
-    # ---------------------------------------------------------
+        # Error real → devolver directamente
+        return build_response(inv.name, api_result)
+
+    # =====================================================
+    # CASO 3: ESTADOS INTERMEDIOS
+    # =====================================================
     sri_estado_result = sri_estado_and_update_data(inv.name, "factura")
 
-    # Si ya quedó autorizada → encolar actualización async
-    if sri_estado_result.get("status") == "AUTHORIZED":
-        frappe.enqueue(
-            "restaurante_app.facturacion_bmarc.einvoice.edocs.sri_estado_and_update_data",
-            queue="long",
-            job_name=f"einvoice-for-{inv.name}",
-            enqueue_after_commit=True,
-            timeout=300,
-            invoice_name=inv.name,
-            type="factura",
-        )
+    if sri_estado_result.get("status") == EInvoiceStatus.AUTHORIZED:
+        enqueue_status_update(inv.name)
 
-    return {
-        "invoice": inv.name,
-        "status": sri_estado_result.get("status"),
-        "access_key": sri_estado_result.get("accessKey"),
-        "messages": sri_estado_result.get("messages") or [],
-        "authorization": sri_estado_result.get("authorization"),
-    }
+    return build_response(inv.name, sri_estado_result)
 
 
 # (Opcional) Nota de Crédito – cuando ya estés listo
@@ -588,3 +515,62 @@ def emit_credit_note_v2(invoice_name: str, motivo: str):
 @frappe.whitelist(methods=["GET"], allow_guest=True)
 def sri_estado_v2(access_key: str, env: str = None):
     return api_sri_estado(access_key, env)
+
+
+
+
+from enum import Enum
+
+# =========================================================
+# ENUM DE ESTADOS
+# =========================================================
+
+class EInvoiceStatus(str, Enum):
+    AUTHORIZED = "AUTHORIZED"
+    ERROR = "ERROR"
+    RECEIVED = "RECEIVED"
+    PROCESSING = "PROCESSING"
+    RETURNED = "RETURNED"
+    NOT_AUTHORIZED = "NOT_AUTHORIZED"
+
+
+# =========================================================
+# ERRORES RECUPERABLES SRI
+# =========================================================
+
+RECOVERABLE_ERROR_KEYWORDS = [
+    "CLAVE ACCESO REGISTRADA",
+    "CLAVE DE ACCESO EN PROCESAMIENTO",
+    "EN PROCESAMIENTO",
+]
+
+
+# =========================================================
+# HELPERS
+# =========================================================
+
+def is_recoverable_error(messages: list) -> bool:
+    error_text = " ".join(messages).upper()
+    return any(keyword in error_text for keyword in RECOVERABLE_ERROR_KEYWORDS)
+
+
+def build_response(invoice_name, result_dict):
+    return {
+        "invoice": invoice_name,
+        "status": result_dict.get("status"),
+        "access_key": result_dict.get("accessKey"),
+        "messages": result_dict.get("messages") or [],
+        "authorization": result_dict.get("authorization"),
+    }
+
+
+def enqueue_status_update(invoice_name):
+    frappe.enqueue(
+        "restaurante_app.facturacion_bmarc.einvoice.edocs.sri_estado_and_update_data",
+        queue="long",
+        job_name=f"einvoice-status-{invoice_name}",
+        enqueue_after_commit=True,
+        timeout=300,
+        invoice_name=invoice_name,
+        type="factura",
+    )

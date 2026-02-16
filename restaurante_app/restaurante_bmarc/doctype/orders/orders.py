@@ -2,7 +2,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import flt, today as _today
+from frappe.utils import flt, today as _today,cint
 from restaurante_app.facturacion_bmarc.doctype.sales_invoice.sales_invoice import queue_einvoice
 from restaurante_app.restaurante_bmarc.api.user import get_user_company
 from restaurante_app.facturacion_bmarc.api.utils import persist_after_emit,_parse_dt_or_date
@@ -16,7 +16,6 @@ from restaurante_app.facturacion_bmarc.api.open_factura_client import (
 from restaurante_app.facturacion_bmarc.einvoice.edocs import sri_estado_and_update_data
 from restaurante_app.facturacion_bmarc.einvoice.utils import puede_facturar
 
-from frappe.utils import flt, cint
 
 def meta_has_field(doctype: str, fieldname: str) -> bool:
     try:
@@ -664,22 +663,28 @@ def create_order_v2():
 
     
 @frappe.whitelist()
-def create_and_emit_from_ui_v2_from_order(order_name: str , customer = None):
+def create_and_emit_from_ui_v2_from_order(order_name: str, customer=None):
+
     order = frappe.get_doc("orders", order_name)
-    # if customer and customer != order.customer:
-    #     order.customer = customer
-    #     order.estado = "Factura"
-    #     order.email = _safe_customer_info(customer)["correo"]
-    #     order.save(ignore_permissions=True)
-    #     frappe.db.commit()
-        
-    existing = frappe.get_all("Sales Invoice", filters={"order": order.name, "docstatus": ["!=", 2]}, pluck="name")
+
+    # ---------------------------------------------------------
+    # 1️⃣ Verificar si ya existe factura
+    # ---------------------------------------------------------
+    existing = frappe.get_all(
+        "Sales Invoice",
+        filters={"order": order.name, "docstatus": ["!=", 2]},
+        pluck="name"
+    )
+
     if existing:
         return {"status": "exists", "invoice": existing[0]}
 
+    # ---------------------------------------------------------
+    # 2️⃣ Datos empresa
+    # ---------------------------------------------------------
     company_name = get_user_company()
     company = frappe.get_doc("Company", company_name)
-    
+
     ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
 
     if ambiente == "PRUEBAS":
@@ -689,22 +694,31 @@ def create_and_emit_from_ui_v2_from_order(order_name: str , customer = None):
     else:
         environment = None
 
+    # ---------------------------------------------------------
+    # 3️⃣ Datos cliente (optimizado)
+    # ---------------------------------------------------------
+    customer_info = _safe_customer_info(order.customer)
+
+    # ---------------------------------------------------------
+    # 4️⃣ Crear factura
+    # ---------------------------------------------------------
     inv = frappe.new_doc("Sales Invoice")
     inv.update({
         "order": order.name,
         "company": order.company_id,
         "customer": order.customer,
-        "customer_name": _safe_customer_info(order.customer)["nombre"] ,
-        "customer_tax_id":  _safe_customer_info(order.customer)["num_identificacion"],
-        "customer_email": _safe_customer_info(order.customer)["correo"],
+        "customer_name": customer_info["nombre"],
+        "customer_tax_id": customer_info["num_identificacion"],
+        "customer_email": customer_info["correo"],
         "posting_date": frappe.utils.today(),
         "estab": company.establishmentcode or "001",
         "ptoemi": company.emissionpoint or "001",
-        "secuencial": getattr(company, "secuencial", None), 
+        "secuencial": getattr(company, "secuencial", None),
         "einvoice_status": "BORRADOR",
         "status": "BORRADOR",
-        "environment" : environment,
+        "environment": environment,
     })
+
     for it in order.items or []:
         inv.append("items", {
             "item_code": it.product,
@@ -713,55 +727,83 @@ def create_and_emit_from_ui_v2_from_order(order_name: str , customer = None):
             "rate": flt(it.rate),
             "tax_rate": flt(frappe.get_value("taxes", it.tax, "value") or 0)
         })
-    
 
-    # (opcional) payments
-    # if order.get("payments"):
-    #     for p in order.payments:
-    #         row = inv.append("payments", {})
-    #         row.forma_pago = p.get("formas_de_pago")
     inv.insert(ignore_permissions=True)
-            
-    # cache link en la orden (opcional)
+
+    # Cache link opcional
     if frappe.db.has_column("orders", "sales_invoice"):
         frappe.db.set_value("orders", order.name, "sales_invoice", inv.name)
+
+    # ---------------------------------------------------------
+    # 5️⃣ Emitir factura
+    # ---------------------------------------------------------
     api_result = emitir_factura_por_invoice(inv.name)
-
-    # 3) Persistir resultado
     persist_after_emit(inv, api_result, "factura")
-    
-    if api_result.get("status") != "AUTHORIZED":
-        
-        sri_estado_result = sri_estado_and_update_data(inv.name)
-        
-        if sri_estado_result.get("status") == "AUTHORIZED":
-            return {
-                    "invoice": inv.name,
-                    "status": sri_estado_result.get("status"),
-                    "access_key": sri_estado_result.get("accessKey"),
-                    "messages": sri_estado_result.get("messages") or [],
-                    "authorization": sri_estado_result.get("authorization"),
-                    }
-        else:
-            # Encola la facturación para ejecutarse después del commit de esta transacción
-            frappe.enqueue(
-                "restaurante_app.facturacion_bmarc.einvoice.edocs.sri_estado_and_update_data",
-                queue="long",
-                job_name=f"einvoice-for-{inv.name}",
-                enqueue_after_commit=True,
-                timeout=3,
-                invoice_name=inv.name
-                
-            )
 
+    status = api_result.get("status")
+    messages = api_result.get("messages") or []
+
+    # ---------------------------------------------------------
+    # CASO 1: AUTORIZADA INMEDIATAMENTE
+    # ---------------------------------------------------------
+    if status == "AUTHORIZED":
+        return build_emit_response(inv.name, api_result)
+
+    # ---------------------------------------------------------
+    # CASO 2: ERROR
+    # ---------------------------------------------------------
+    if status == "ERROR":
+
+        error_text = " ".join(messages).upper()
+
+        # Error recuperable
+        if "CLAVE ACCESO REGISTRADA" in error_text:
+            sri_estado_result = sri_estado_and_update_data(inv.name, "factura")
+
+            if sri_estado_result.get("status") == "AUTHORIZED":
+                enqueue_status_update(inv.name)
+
+            return build_emit_response(inv.name, sri_estado_result)
+
+        # Error real
+        return build_emit_response(inv.name, api_result)
+
+    # ---------------------------------------------------------
+    # CASO 3: ESTADOS INTERMEDIOS
+    # ---------------------------------------------------------
+    sri_estado_result = sri_estado_and_update_data(inv.name, "factura")
+
+    if sri_estado_result.get("status") == "AUTHORIZED":
+        enqueue_status_update(inv.name)
+
+    return build_emit_response(inv.name, sri_estado_result)
+
+
+# =========================================================
+# HELPERS
+# =========================================================
+
+def build_emit_response(invoice_name, result_dict):
     return {
-        "invoice": inv.name,
-        "status": api_result.get("status"),
-        "access_key": api_result.get("accessKey"),
-        "messages": api_result.get("messages") or [],
-        "authorization": api_result.get("authorization"),
+        "invoice": invoice_name,
+        "status": result_dict.get("status"),
+        "access_key": result_dict.get("accessKey"),
+        "messages": result_dict.get("messages") or [],
+        "authorization": result_dict.get("authorization"),
     }
-        
+
+
+def enqueue_status_update(invoice_name):
+    frappe.enqueue(
+        "restaurante_app.facturacion_bmarc.einvoice.edocs.sri_estado_and_update_data",
+        queue="long",
+        job_name=f"einvoice-status-{invoice_name}",
+        enqueue_after_commit=True,
+        timeout=300,
+        invoice_name=invoice_name,
+        type="factura",
+    )
+   
 @frappe.whitelist()
 def set_order_status(name: str, status: str):
     """
