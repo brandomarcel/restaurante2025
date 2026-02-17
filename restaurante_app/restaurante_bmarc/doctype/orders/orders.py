@@ -34,6 +34,83 @@ def users_for_company(company: str) -> list[str]:
 
 # orders.py
 class orders(Document):
+    def _build_realtime_payload(self):
+        """
+        Devuelve el mismo formato que get_all_orders
+        para que el frontend no tenga que hacer refreshOne
+        """
+
+        # ---------- CUSTOMER ----------
+        customer_info = _safe_customer_info(self.customer)
+
+        # ---------- ITEMS ----------
+        items = []
+
+        for it in self.items or []:
+            qty = flt(it.qty)
+            rate = flt(it.rate)
+
+            tax_rate = flt(
+                it.tax_rate if it.tax_rate is not None
+                else frappe.get_value("taxes", it.tax, "value") or 0
+            )
+
+            subtotal = qty * rate
+            iva = subtotal * (tax_rate / 100.0)
+            total = subtotal + iva
+
+            items.append({
+                "productId": it.product,
+                "productName": _safe_product_name(it.product),
+                "quantity": qty,
+                "price": rate,
+                "tax_rate": tax_rate,
+                "subtotal": subtotal,
+                "iva": iva,
+                "total": total,
+            })
+
+        # ---------- SRI ----------
+        sri = {"status": "Sin factura"}
+
+        inv = frappe.get_all(
+            "Sales Invoice",
+            filters={"order": self.name, "docstatus": ["!=", 2]},
+            fields=["name", "einvoice_status", "authorization_datetime", "access_key", "estab", "ptoemi", "secuencial", "grand_total"],
+            limit=1
+        )
+
+        if inv:
+            inv = inv[0]
+            parts = [inv.get("estab") or "", inv.get("ptoemi") or "", inv.get("secuencial") or ""]
+            number = "-".join([p for p in parts if p]).strip("-") or None
+
+            sri = {
+                "status": inv.get("einvoice_status") or "Draft",
+                "authorization_datetime": inv.get("authorization_datetime"),
+                "access_key": inv.get("access_key"),
+                "invoice": inv.get("name"),
+                "number": number,
+                "grand_total": inv.get("grand_total"),
+            }
+
+        # ---------- PAYLOAD FINAL ----------
+        return {
+            "name": self.name,
+            "status": self.status,
+            "type": getattr(self, "estado", "venta"),
+            "createdAt": self.creation,
+            "createdAtISO": str(self.creation).replace(" ", "T"),
+            "subtotal": self.subtotal,
+            "iva": self.iva,
+            "total": self.total,
+            "customer": customer_info,
+            "sri": sri,
+            "usuario": self.owner,
+            "items": items,
+            "payments": self.payments or [],
+        }
+
     def before_save(self):
         if self.customer and not frappe.db.exists("Cliente", self.customer):
             frappe.throw(_("El Cliente '{0}' no existe.").format(self.customer))
@@ -41,22 +118,29 @@ class orders(Document):
 
     def _publish_to_company_users(self, action: str):
         company = getattr(self, "company_id", None) or getattr(self, "empresa", None) or "DEFAULT"
+
+        payload = self._build_realtime_payload()
+
         msg = {
             "doctype": "orders",
             "name": self.name,
-            "data": self.as_dict(),
+            "data": payload,
             "_action": action,
             "company": company,
-            "user":  users_for_company(company)
+            "user": users_for_company(company)
         }
+
         ev = f"brando_conect:company:{company}"
+
         for user in users_for_company(company):
             frappe.publish_realtime(
-                event=ev, 
-                message=msg, 
-                user=user, 
+                event=ev,
+                message=msg,
+                user=user,
                 after_commit=True
             )
+
+
 
 
 
