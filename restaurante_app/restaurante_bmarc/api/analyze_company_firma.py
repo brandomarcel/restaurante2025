@@ -130,25 +130,33 @@ def _get_company_doc(company: str | None, company_ruc: str | None):
     return frappe.get_doc("Company", get_user_company())
 
 @frappe.whitelist()
-def analyze_company_firma(password: str, company: str = None, company_ruc: str = None,file_url: str = None, save_to_company: int = 0):
+def analyze_company_firma(
+    password: str,
+    company: str = None,
+    company_ruc: str = None,
+    file_url: str = None,
+    save_to_company: int = 0,
+):
     """
     Valida la contraseña del .p12 de la Company y extrae metadatos del certificado.
     - password: clave del .p12
-    - company / company_ruc: para ubicar el archivo (usa Company.urlfirma)
-    - save_to_company: si =1 intenta guardar los campos si existen en Company
-    Retorna un dict con info del certificado.
+    - company / company_ruc: para ubicar la empresa
+    - file_url: opcional, prioriza archivo recién subido
+    - save_to_company: si =1 intenta guardar campos en Company
     """
-    frappe.only_for(("System Manager", "Gerente", "Cajero"))  # ajusta a tus roles
+    frappe.only_for(("System Manager", "Gerente", "Cajero"))
 
     comp = _get_company_doc(company, company_ruc)
-    file_url = (comp.get("urlfirma") or file_url).strip()
-    if not file_url:
+
+    # IMPORTANTE: priorizar file_url entrante (nuevo), luego el guardado en Company
+    resolved_file_url = (file_url or comp.get("urlfirma") or "").strip()
+    if not resolved_file_url:
         frappe.throw(_("La empresa {0} no tiene 'urlfirma' configurado.").format(comp.name))
 
     # Lee bytes del archivo
-    _fname, file_content = get_file(file_url)  # -> (path/name, bytes)
+    _fname, file_content = get_file(resolved_file_url)
     if not file_content:
-        frappe.throw(_("No se pudo leer el archivo de la firma en {0}.").format(file_url))
+        frappe.throw(_("No se pudo leer el archivo de la firma en {0}.").format(resolved_file_url))
 
     # Intenta abrir el PKCS#12 con la contraseña
     try:
@@ -157,7 +165,6 @@ def analyze_company_firma(password: str, company: str = None, company_ruc: str =
             password.encode("utf-8") if password is not None else None
         )
     except ValueError:
-        # contraseña incorrecta o archivo corrupto
         frappe.throw(_("La clave de la firma es incorrecta o el archivo .p12 es inválido."))
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "analyze_company_firma:load_pkcs12_error")
@@ -168,7 +175,7 @@ def analyze_company_firma(password: str, company: str = None, company_ruc: str =
 
     # Extrae información
     subject = cert.subject
-    issuer  = cert.issuer
+    issuer = cert.issuer
 
     info = {
         "subject": _dn_to_str(subject),
@@ -179,8 +186,8 @@ def analyze_company_firma(password: str, company: str = None, company_ruc: str =
         "organization": _first_or_none(subject, NameOID.ORGANIZATION_NAME),
         "org_unit": _first_or_none(subject, NameOID.ORGANIZATIONAL_UNIT_NAME),
         "country": _first_or_none(subject, NameOID.COUNTRY_NAME),
-        "serial_number_hex": format(cert.serial_number, "X"),  # serie del certificado (hex)
-        "subject_id": _extract_id_from_subject(subject),       # intenta cédula/RUC
+        "serial_number_hex": format(cert.serial_number, "X"),
+        "subject_id": _extract_id_from_subject(subject),
         "not_before": _fmt_dt(cert.not_valid_before),
         "not_after": _fmt_dt(cert.not_valid_after),
         "key_usage": _key_usage_to_text(_try_get_ext(cert, ExtensionOID.KEY_USAGE)),
@@ -188,12 +195,9 @@ def analyze_company_firma(password: str, company: str = None, company_ruc: str =
         "subject_alt_name": _san_to_text(
             getattr(_try_get_ext(cert, ExtensionOID.SUBJECT_ALTERNATIVE_NAME), "general_names", [])
         ),
-        # por si lo necesitas luego:
-        # "public_key_algo": cert.public_key().__class__.__name__,
-        # "signature_algo_oid": cert.signature_algorithm_oid.dotted_string,
     }
 
-    # Validación opcional contra RUC de la empresa si lo tienes
+    # Validación opcional contra RUC de la empresa
     comp_ruc = (comp.get("ruc") or "").strip()
     if comp_ruc and info["subject_id"] and comp_ruc != info["subject_id"]:
         info["ruc_mismatch"] = {
@@ -201,10 +205,14 @@ def analyze_company_firma(password: str, company: str = None, company_ruc: str =
             "cert_id": info["subject_id"]
         }
 
-    # Guardar en Company si procede y si existen los campos
+    # Guardar en Company si procede y si existen campos
     if int(save_to_company or 0):
         updates = {}
-        # Solo asigna si el campo existe (para no romper tu DocType)
+
+        # Mantener sincronizado urlfirma con el archivo realmente analizado
+        if frappe.db.has_column("Company", "urlfirma"):
+            updates["urlfirma"] = resolved_file_url
+
         for field, key in [
             ("cert_subject", "subject"),
             ("cert_issuer", "issuer"),
@@ -224,4 +232,10 @@ def analyze_company_firma(password: str, company: str = None, company_ruc: str =
             comp.update(updates)
             comp.save(ignore_permissions=True)
 
-    return {"ok": True, "company": comp.name, "file_url": file_url, "info": info}
+    return {
+        "ok": True,
+        "company": comp.name,
+        "file_url": resolved_file_url,
+        "info": info
+    }
+

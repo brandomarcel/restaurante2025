@@ -25,9 +25,9 @@
   "obligado_a_llevar_contabilidad",
   "tab_2_tab",
   "firma_section",
+  "cert_common_name",
   "cert_not_before",
-  "cert_not_after",
-  "cert_common_name"
+  "cert_not_after"
  ],
  "fields": [
   {
@@ -132,6 +132,13 @@
    "label": "Emitido a nombre de"
   },
   {
+   "default": "NO",
+   "fieldname": "obligado_a_llevar_contabilidad",
+   "fieldtype": "Select",
+   "label": "Obligado Contabilidad",
+   "options": "SI\nNO"
+  },
+  {
    "fieldname": "cert_not_before",
    "fieldtype": "Data",
    "label": "cert_not_before"
@@ -140,18 +147,11 @@
    "fieldname": "cert_not_after",
    "fieldtype": "Data",
    "label": "cert_not_after"
-  },
-  {
-   "default": "NO",
-   "fieldname": "obligado_a_llevar_contabilidad",
-   "fieldtype": "Select",
-   "label": "Obligado Contabilidad",
-   "options": "SI\nNO"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-01 17:41:08.070149",
+ "modified": "2026-02-21 20:34:31.419309",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Company",

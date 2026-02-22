@@ -43,7 +43,14 @@ def calcular_datos_para_cierre(usuario, desde=None, hasta=None):
     }, limit=1)
 
     if not apertura:
-        frappe.throw("No hay apertura de caja activa para este usuario.")
+        return {
+            "apertura": None,
+            "monto_apertura": 0,
+            "efectivo_sistema": 0,
+            "detalle": {},
+            "total_retiros": 0,
+            "mensaje": "No hay apertura de caja activa para este usuario."
+        }
 
     apertura_doc = frappe.get_doc("Apertura de Caja", apertura[0].name)
 

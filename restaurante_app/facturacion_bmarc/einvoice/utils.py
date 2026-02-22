@@ -4,6 +4,7 @@ from frappe import _
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import random
+from frappe.utils import now_datetime,get_datetime
 
 def to_decimal(value, default=Decimal("0")) -> Decimal:
     if value is None: return default
@@ -66,6 +67,24 @@ def obtener_ambiente(company) -> str:
 def puede_facturar(companyID) -> bool:
     company = frappe.get_doc("Company", companyID)
     return bool(company.urlfirma and company.clave)
+
+
+def validar_fecha_firma(companyID) -> bool:
+    company = frappe.get_doc("Company", companyID)
+
+    # Validar datos básicos
+    if not (company.urlfirma and company.clave and company.cert_not_after):
+        return False
+
+    # Convertir string a datetime
+    fecha_expiracion = get_datetime(company.cert_not_after)
+
+    # Comparar contra fecha actual
+    if now_datetime() > fecha_expiracion:
+        return False
+
+    return True
+
 def obtener_y_actualizar_secuencial(company_name: str) -> str:
     """
     Reserva y retorna el secuencial (formato 9 dígitos) según el ambiente de la Company,
