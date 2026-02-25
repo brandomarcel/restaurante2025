@@ -1,17 +1,15 @@
 # restaurante_app/restaurante_bmarc/doctype/orders/orders.py
 import frappe
+from enum import Enum
+from typing import Optional
 from frappe.model.document import Document
 from frappe import _
 from frappe.utils import flt, today as _today,cint
-from restaurante_app.facturacion_bmarc.doctype.sales_invoice.sales_invoice import queue_einvoice
 from restaurante_app.restaurante_bmarc.api.user import get_user_company
 from restaurante_app.facturacion_bmarc.api.utils import persist_after_emit,_parse_dt_or_date
 
 from restaurante_app.facturacion_bmarc.api.open_factura_client import (
     emitir_factura_por_invoice,
-    emitir_nota_credito_por_invoice,
-    sri_estado as api_sri_estado,
-    
 )
 from restaurante_app.facturacion_bmarc.einvoice.edocs import sri_estado_and_update_data
 from restaurante_app.facturacion_bmarc.einvoice.utils import puede_facturar
@@ -32,6 +30,124 @@ def users_for_company(company: str) -> list[str]:
     )
     return [r.user for r in rows]
 
+
+class EInvoiceStatus(str, Enum):
+    AUTHORIZED = "AUTHORIZED"
+    ERROR = "ERROR"
+    RECEIVED = "RECEIVED"
+    PROCESSING = "PROCESSING"
+    RETURNED = "RETURNED"
+    NOT_AUTHORIZED = "NOT_AUTHORIZED"
+
+
+RECOVERABLE_ERROR_KEYWORDS = [
+    "CLAVE ACCESO REGISTRADA",
+    "CLAVE DE ACCESO EN PROCESAMIENTO",
+    "EN PROCESAMIENTO",
+]
+
+
+def _normalize_messages(messages) -> list[str]:
+    if not messages:
+        return []
+    if isinstance(messages, list):
+        return [str(m) for m in messages]
+    return [str(messages)]
+
+
+def _is_recoverable_error(messages) -> bool:
+    error_text = " ".join(_normalize_messages(messages)).upper()
+    return any(keyword in error_text for keyword in RECOVERABLE_ERROR_KEYWORDS)
+
+
+def _is_valid_access_key(access_key: Optional[str]) -> bool:
+    return bool(access_key and len(access_key) == 49 and str(access_key).isdigit())
+
+
+def _environment_label(company) -> Optional[str]:
+    ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
+    if ambiente == "PRUEBAS":
+        return "Pruebas"
+    if ambiente == "PRODUCCION":
+        return "Producción"
+    return None
+
+
+def _sri_forma_pago(code: Optional[str]) -> str:
+    if code is None:
+        return "01"
+    code = str(code).strip()
+    if not code:
+        return "01"
+    if code.isdigit() and len(code) == 2:
+        return code
+    try:
+        sri_code = frappe.db.get_value("formas de pago", code, "sri_code")
+        return sri_code or "01"
+    except Exception:
+        return "01"
+
+
+def _resolve_tax_rate(item_row) -> float:
+    if getattr(item_row, "tax_rate", None) is not None:
+        return flt(item_row.tax_rate)
+    return flt(frappe.get_value("taxes", getattr(item_row, "tax", None), "value") or 0)
+
+
+def _append_sales_invoice_payments_from_order(inv, order_doc):
+    # Compatibilidad: si el doctype no tiene tabla payments, no forzamos el append.
+    if not meta_has_field("Sales Invoice", "payments"):
+        return
+
+    order_total = flt(getattr(order_doc, "total", 0))
+    for p in (getattr(order_doc, "payments", None) or []):
+        forma_pago = _sri_forma_pago(
+            getattr(p, "formas_de_pago", None) or getattr(p, "forma_pago", None) or getattr(p, "code", None)
+        )
+        raw_amount = getattr(p, "monto", None)
+        if raw_amount is None:
+            raw_amount = getattr(p, "amount", None)
+        monto = flt(raw_amount if raw_amount is not None else order_total)
+        if monto <= 0 and order_total > 0:
+            monto = order_total
+        if not forma_pago:
+            continue
+        row = inv.append("payments", {})
+        child_dt = getattr(row, "doctype", None)
+        if child_dt and meta_has_field(child_dt, "forma_pago"):
+            row.forma_pago = forma_pago
+        elif child_dt and meta_has_field(child_dt, "code"):
+            row.code = forma_pago
+        else:
+            row.forma_pago = forma_pago
+
+        if child_dt and meta_has_field(child_dt, "monto"):
+            row.monto = monto
+        elif child_dt and meta_has_field(child_dt, "amount"):
+            row.amount = monto
+        else:
+            row.monto = monto
+
+
+def _sync_status_or_enqueue(invoice_name: str, api_result: dict) -> dict:
+    access_key = api_result.get("accessKey")
+    if not _is_valid_access_key(access_key):
+        return api_result
+
+    try:
+        sri_result = sri_estado_and_update_data(invoice_name, "factura")
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            f"Error consultando estado SRI para factura {invoice_name}",
+        )
+        enqueue_status_update(invoice_name, "factura")
+        return api_result
+
+    if str(sri_result.get("status") or "").upper() != EInvoiceStatus.AUTHORIZED.value:
+        enqueue_status_update(invoice_name, "factura")
+    return sri_result
+
 # orders.py
 class orders(Document):
     def _build_realtime_payload(self):
@@ -50,10 +166,7 @@ class orders(Document):
             qty = flt(it.qty)
             rate = flt(it.rate)
 
-            tax_rate = flt(
-                it.tax_rate if it.tax_rate is not None
-                else frappe.get_value("taxes", it.tax, "value") or 0
-            )
+            tax_rate = _resolve_tax_rate(it)
 
             subtotal = qty * rate
             iva = subtotal * (tax_rate / 100.0)
@@ -97,6 +210,8 @@ class orders(Document):
         # ---------- PAYLOAD FINAL ----------
         return {
             "name": self.name,
+            "alias": self.alias,
+            "email": self.email,
             "status": self.status,
             "type": getattr(self, "estado", "venta"),
             "createdAt": self.creation,
@@ -118,6 +233,7 @@ class orders(Document):
 
     def _publish_to_company_users(self, action: str):
         company = getattr(self, "company_id", None) or getattr(self, "empresa", None) or "DEFAULT"
+        company_users = users_for_company(company)
 
         payload = self._build_realtime_payload()
 
@@ -127,12 +243,12 @@ class orders(Document):
             "data": payload,
             "_action": action,
             "company": company,
-            "user": users_for_company(company)
+            "user": company_users
         }
 
         ev = f"brando_conect:company:{company}"
 
-        for user in users_for_company(company):
+        for user in company_users:
             frappe.publish_realtime(
                 event=ev,
                 message=msg,
@@ -161,7 +277,7 @@ class orders(Document):
         for it in self.items or []:
             qty  = flt(it.qty)
             rate = flt(it.rate)
-            tax_val = flt(frappe.get_value("taxes", it.tax, "value") or 0)
+            tax_val = _resolve_tax_rate(it)
             line_subtotal = qty * rate
             line_iva = line_subtotal * (tax_val / 100.0)
             subtotal += line_subtotal
@@ -308,13 +424,17 @@ def update_order():
         total_paid = 0
 
         for p in payments:
-            amount = flt(p.get("amount"))
+            forma_pago = p.get("formas_de_pago") or p.get("method") or p.get("code")
+            amount = flt(p.get("monto") if p.get("monto") is not None else p.get("amount"))
+            if not forma_pago:
+                frappe.throw(_("Cada pago debe incluir un método de pago válido"))
+            if amount <= 0:
+                frappe.throw(_("El monto de cada pago debe ser mayor a 0"))
             total_paid += amount
 
             order.append("payments", {
-                "method": p.get("method"),
-                "amount": amount,
-                "code": p.get("code"),
+                "formas_de_pago": forma_pago,
+                "monto": amount,
             })
 
         # 🔥 Validar que pagos cuadren
@@ -617,6 +737,7 @@ def get_all_orders(limit=10, offset=0, created_from=None, created_to=None, order
             "sri": sri,
             "usuario": doc.owner,
             "items": items,
+            "alias": doc.alias
         })
 
     return {
@@ -678,6 +799,8 @@ def create_order_v2():
 
     if not data:
         frappe.throw(_("No se recibió información"))
+    if not isinstance(data, dict):
+        frappe.throw(_("El payload debe ser un objeto JSON válido"))
 
     company_name = get_user_company(user)
 
@@ -706,7 +829,7 @@ def create_order_v2():
 
         customer = cons_final
 
-    issue_invoice = (data.get("estado") == "Factura")
+    issue_invoice = (str(data.get("estado") or "").strip() == "Factura")
     if issue_invoice and not puede_facturar(company_name):
         frappe.throw(_("No puede facturar, no tiene registrada la firma electrónica"))
 
@@ -748,119 +871,74 @@ def create_order_v2():
     
 @frappe.whitelist()
 def create_and_emit_from_ui_v2_from_order(order_name: str, customer=None):
+    if not order_name:
+        frappe.throw(_("Debe proporcionar el nombre de la orden"))
 
-    order = frappe.get_doc("orders", order_name)
+    order_doc = frappe.get_doc("orders", order_name)
 
-    # ---------------------------------------------------------
-    # 1️⃣ Verificar si ya existe factura
-    # ---------------------------------------------------------
     existing = frappe.get_all(
         "Sales Invoice",
-        filters={"order": order.name, "docstatus": ["!=", 2]},
+        filters={"order": order_doc.name, "docstatus": ["!=", 2]},
         pluck="name"
     )
-
     if existing:
         return {"status": "exists", "invoice": existing[0]}
 
-    # ---------------------------------------------------------
-    # 2️⃣ Datos empresa
-    # ---------------------------------------------------------
-    company_name = get_user_company()
+    company_name = getattr(order_doc, "company_id", None) or get_user_company()
+    if not company_name:
+        frappe.throw(_("No se pudo determinar la compañía para emitir la factura"))
+    if not puede_facturar(company_name):
+        frappe.throw(_("No puede facturar, no tiene registrada la firma electrónica"))
+
     company = frappe.get_doc("Company", company_name)
+    customer_info = _safe_customer_info(order_doc.customer)
 
-    ambiente = (getattr(company, "ambiente", "") or "").strip().upper()
-
-    if ambiente == "PRUEBAS":
-        environment = "Pruebas"
-    elif ambiente == "PRODUCCION":
-        environment = "Producción"
-    else:
-        environment = None
-
-    # ---------------------------------------------------------
-    # 3️⃣ Datos cliente (optimizado)
-    # ---------------------------------------------------------
-    customer_info = _safe_customer_info(order.customer)
-
-    # ---------------------------------------------------------
-    # 4️⃣ Crear factura
-    # ---------------------------------------------------------
     inv = frappe.new_doc("Sales Invoice")
     inv.update({
-        "order": order.name,
-        "company": order.company_id,
-        "customer": order.customer,
+        "order": order_doc.name,
+        "company_id": company_name,
+        "customer": order_doc.customer,
         "customer_name": customer_info["nombre"],
         "customer_tax_id": customer_info["num_identificacion"],
         "customer_email": customer_info["correo"],
         "posting_date": frappe.utils.today(),
         "estab": company.establishmentcode or "001",
         "ptoemi": company.emissionpoint or "001",
-        "secuencial": getattr(company, "secuencial", None),
+        "secuencial": None,
         "einvoice_status": "BORRADOR",
         "status": "BORRADOR",
-        "environment": environment,
+        "environment": _environment_label(company),
     })
 
-    for it in order.items or []:
+    for it in order_doc.items or []:
         inv.append("items", {
             "item_code": it.product,
             "item_name": _safe_product_name(it.product),
             "qty": flt(it.qty),
             "rate": flt(it.rate),
-            "tax_rate": flt(frappe.get_value("taxes", it.tax, "value") or 0)
+            "tax_rate": _resolve_tax_rate(it),
         })
+    _append_sales_invoice_payments_from_order(inv, order_doc)
 
     inv.insert(ignore_permissions=True)
 
-    # Cache link opcional
     if frappe.db.has_column("orders", "sales_invoice"):
-        frappe.db.set_value("orders", order.name, "sales_invoice", inv.name)
+        frappe.db.set_value("orders", order_doc.name, "sales_invoice", inv.name, update_modified=False)
+    if frappe.db.has_column("orders", "estado"):
+        frappe.db.set_value("orders", order_doc.name, "estado", "Factura", update_modified=False)
 
-    # ---------------------------------------------------------
-    # 5️⃣ Emitir factura
-    # ---------------------------------------------------------
     api_result = emitir_factura_por_invoice(inv.name)
     persist_after_emit(inv, api_result, "factura")
 
-    status = api_result.get("status")
-    messages = api_result.get("messages") or []
-
-    # ---------------------------------------------------------
-    # CASO 1: AUTORIZADA INMEDIATAMENTE
-    # ---------------------------------------------------------
-    if status == "AUTHORIZED":
+    status = str(api_result.get("status") or "").upper()
+    if status == EInvoiceStatus.AUTHORIZED.value:
         return build_emit_response(inv.name, api_result)
 
-    # ---------------------------------------------------------
-    # CASO 2: ERROR
-    # ---------------------------------------------------------
-    if status == "ERROR":
-
-        error_text = " ".join(messages).upper()
-
-        # Error recuperable
-        if "CLAVE ACCESO REGISTRADA" in error_text:
-            sri_estado_result = sri_estado_and_update_data(inv.name, "factura")
-
-            if sri_estado_result.get("status") == "AUTHORIZED":
-                enqueue_status_update(inv.name)
-
-            return build_emit_response(inv.name, sri_estado_result)
-
-        # Error real
+    if status == EInvoiceStatus.ERROR.value and not _is_recoverable_error(api_result.get("messages")):
         return build_emit_response(inv.name, api_result)
 
-    # ---------------------------------------------------------
-    # CASO 3: ESTADOS INTERMEDIOS
-    # ---------------------------------------------------------
-    sri_estado_result = sri_estado_and_update_data(inv.name, "factura")
-
-    if sri_estado_result.get("status") == "AUTHORIZED":
-        enqueue_status_update(inv.name)
-
-    return build_emit_response(inv.name, sri_estado_result)
+    final_result = _sync_status_or_enqueue(inv.name, api_result)
+    return build_emit_response(inv.name, final_result)
 
 
 # =========================================================
@@ -872,20 +950,20 @@ def build_emit_response(invoice_name, result_dict):
         "invoice": invoice_name,
         "status": result_dict.get("status"),
         "access_key": result_dict.get("accessKey"),
-        "messages": result_dict.get("messages") or [],
+        "messages": _normalize_messages(result_dict.get("messages")),
         "authorization": result_dict.get("authorization"),
     }
 
 
-def enqueue_status_update(invoice_name):
+def enqueue_status_update(invoice_name, type_document: str = "factura"):
     frappe.enqueue(
         "restaurante_app.facturacion_bmarc.einvoice.edocs.sri_estado_and_update_data",
         queue="long",
-        job_name=f"einvoice-status-{invoice_name}",
+        job_name=f"einvoice-status-{type_document}-{invoice_name}",
         enqueue_after_commit=True,
         timeout=300,
         invoice_name=invoice_name,
-        type="factura",
+        type=type_document,
     )
    
 @frappe.whitelist()
