@@ -1,5 +1,5 @@
 {
- "add_total_row": 0,
+ "add_total_row": 1,
  "add_translate_data": 0,
  "columns": [],
  "creation": "2025-06-05 16:52:09.416609",
@@ -10,7 +10,7 @@
  "idx": 0,
  "is_standard": "Yes",
  "letterhead": null,
- "modified": "2025-06-05 16:52:09.416609",
+ "modified": "2026-02-25 22:20:05.790309",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Orders Report",
