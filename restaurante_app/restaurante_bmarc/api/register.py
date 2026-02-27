@@ -376,15 +376,13 @@ def _roles_from_profile(role_profile_name: str) -> set[str]:
 def _allowed_roles_whitelist() -> set[str]:
     """Lee la lista blanca de roles permitidos desde site_config (opcional)."""
     allowed = set((frappe.get_site_config() or {}).get("registration_allowed_roles", []))
-    # Si no hay lista blanca, por seguridad limita a Cajero/Gerente
-    return allowed or {"Cajero", "Gerente"}
+    # Si no hay lista blanca, por seguridad limita a roles operativos soportados.
+    return allowed or {"Cajero", "Gerente", "Mesero"}
 
 @frappe.whitelist()
 def create_company_user(
     user_json: str,
-    role_key: str,                # "cajero" o "gerente"
-    company: str = None,          # name de Company
-    company_ruc: str = None,      # o RUC
+    role_key: str,                # "cajero" | "gerente" | "mesero"
     add_permission: int = 1,      # crea User Permission a la empresa
     send_welcome_email: int = 0,  # opcional
 ):
@@ -405,21 +403,16 @@ def create_company_user(
 
     role_key_norm = (role_key or "").strip().lower()
     if role_key_norm not in ROLE_MAP:
-        frappe.throw(_("role_key debe ser 'Cajero' o 'Gerente'."))
+        frappe.throw(_("role_key debe ser 'Cajero', 'Gerente' o 'Mesero'."))
 
     # Si no eres SysMan, no puedes crear Gerentes
-    if "System Manager" not in set(frappe.get_roles(frappe.session.user)) and role_key_norm == "Gerente":
+    if "System Manager" not in set(frappe.get_roles(frappe.session.user)) and role_key_norm == "gerente":
         frappe.throw(_("No tienes permisos para crear usuarios con rol Gerente."))
 
     # --- Resolver Company ---
+    # Patrón único del proyecto: siempre por sesión (no depender del frontend).
     session_company_name = get_user_company()
-    if company or company_ruc:
-        comp_doc = _get_company_by_id_or_ruc(company, company_ruc)
-        if "System Manager" not in set(frappe.get_roles(frappe.session.user)):
-            if comp_doc.name != session_company_name:
-                frappe.throw(_("No puedes crear usuarios para otra compañía ({0}).").format(comp_doc.name))
-    else:
-        comp_doc = frappe.get_doc("Company", session_company_name)
+    comp_doc = frappe.get_doc("Company", session_company_name)
 
     target_profile = ROLE_MAP[role_key_norm]["role_profile"]
     roles_from_profile = _roles_from_profile(target_profile)
@@ -508,6 +501,9 @@ def create_company_user(
                 "apply_to_all_doctypes": 0
             }).insert(ignore_permissions=True)
 
+    # Default de compañía para el usuario (tabDefaultValue)
+    frappe.defaults.set_user_default("Company", comp_doc.name, user=user_doc.name)
+
     # default_company si existe el field
     if _meta_has_field("User", "default_company"):
         user_doc.db_set("default_company", comp_doc.name, update_modified=False)
@@ -533,8 +529,6 @@ def create_company_user(
 
 @frappe.whitelist()
 def list_company_users(
-    company: str = None,
-    company_ruc: str = None,
     enabled: int | None = None,
     search: str | None = None,
     limit: int = 1000,
@@ -543,39 +537,38 @@ def list_company_users(
     frappe.only_for(("System Manager", "Gerente"))
 
     session_company_name = get_user_company()  # deduce por defaults o User Permission
-    if company or company_ruc:
-        comp_doc = _get_company_by_id_or_ruc(company, company_ruc)
-        if "System Manager" not in set(frappe.get_roles(frappe.session.user)):
-            if comp_doc.name != session_company_name:
-                frappe.throw(_("No puedes listar usuarios de otra compañía ({0}).").format(comp_doc.name))
-    else:
-        comp_doc = frappe.get_doc("Company", session_company_name)
+    comp_doc = frappe.get_doc("Company", session_company_name)
 
-    # Si no es SysMan, valida que tenga permiso explícito a esa Company
-    if "System Manager" not in set(frappe.get_roles(frappe.session.user)):
-        has_perm = frappe.db.exists("User Permission", {
-            "user": frappe.session.user,
-            "allow": "Company",
-            "for_value": comp_doc.name
-        })
-        if not has_perm:
-            frappe.throw(_("No tienes permisos para listar usuarios de {0}.").format(comp_doc.name))
-
-    # Usuarios con permiso a la company
-    permitted_users = set(frappe.get_all(
-        "User Permission",
-        filters={"allow": "Company", "for_value": comp_doc.name},
-        pluck="user"
-    ))
+    # Usuarios con permiso a la company.
+    # Usamos db.get_all para no depender de permisos de lectura del doctype User Permission.
+    permitted_users = set(
+        frappe.db.get_all(
+            "User Permission",
+            filters={"allow": "Company", "for_value": comp_doc.name},
+            pluck="user",
+        )
+    )
 
     # Incluir usuarios con default_company = company (si el campo existe)
     if _meta_has_field("User", "default_company"):
-        default_users = set(frappe.get_all(
-            "User",
-            filters={"default_company": comp_doc.name},
-            pluck="name"
-        ))
+        default_users = set(
+            frappe.db.get_all(
+                "User",
+                filters={"default_company": comp_doc.name},
+                pluck="name",
+            )
+        )
         permitted_users |= default_users
+
+    # Fallback adicional: defaults guardados en tabDefaultValue (frappe.defaults.set_user_default)
+    defaults_users = set(
+        frappe.db.get_all(
+            "DefaultValue",
+            filters={"defkey": "Company", "defvalue": comp_doc.name},
+            pluck="parent",
+        )
+    )
+    permitted_users |= defaults_users
 
     if not permitted_users:
         return {"ok": True, "company": comp_doc.name, "data": [], "total": 0}
@@ -584,7 +577,8 @@ def list_company_users(
     if enabled in (0, 1):
         usr_filters.append(["enabled", "=", int(enabled)])
 
-    rows = frappe.get_all(
+    # Usamos db.get_all para devolver todos los usuarios vinculados, sin recortes por permisos de lectura en User.
+    rows = frappe.db.get_all(
         "User",
         fields=["name", "email", "first_name", "last_name", "phone", "enabled", "role_profile_name"],
         filters=usr_filters,
