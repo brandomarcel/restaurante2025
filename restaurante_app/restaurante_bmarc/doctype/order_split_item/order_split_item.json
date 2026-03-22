@@ -1,0 +1,101 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-03-08 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "order_item",
+  "product",
+  "qty",
+  "rate",
+  "tax",
+  "tax_rate",
+  "line_subtotal",
+  "line_iva",
+  "line_total"
+ ],
+ "fields": [
+  {
+   "fieldname": "order_item",
+   "fieldtype": "Data",
+   "label": "Item Orden Ref",
+   "read_only": 1
+  },
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Producto",
+   "options": "Producto",
+   "reqd": 1
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Cantidad",
+   "reqd": 1
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Precio",
+   "precision": "2",
+   "reqd": 1
+  },
+  {
+   "fieldname": "tax",
+   "fieldtype": "Link",
+   "label": "IVA",
+   "options": "taxes"
+  },
+  {
+   "fieldname": "tax_rate",
+   "fieldtype": "Float",
+   "label": "Valor IVA"
+  },
+  {
+   "fieldname": "line_subtotal",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Subtotal",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "line_iva",
+   "fieldtype": "Currency",
+   "label": "IVA Total",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "line_total",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total",
+   "precision": "2",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-03-08 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Restaurante BMARC",
+ "name": "Order Split Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

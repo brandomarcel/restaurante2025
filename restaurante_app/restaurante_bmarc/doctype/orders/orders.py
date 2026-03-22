@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Optional
 from frappe.model.document import Document
 from frappe import _
-from frappe.utils import flt, today as _today,cint
+from frappe.utils import cint, flt, getdate, today as _today
 from restaurante_app.restaurante_bmarc.api.user import get_user_company
 from restaurante_app.facturacion_bmarc.api.utils import persist_after_emit,_parse_dt_or_date
 
@@ -69,8 +69,30 @@ def _environment_label(company) -> Optional[str]:
     if ambiente == "PRUEBAS":
         return "Pruebas"
     if ambiente == "PRODUCCION":
-        return "Producción"
+        return "Produccion"
     return None
+
+
+def _order_business_date(order_doc):
+    order_creation = getattr(order_doc, "creation", None)
+    if order_creation:
+        return getdate(order_creation)
+    return getdate(_today())
+
+
+def _assert_can_emit_invoice_today(order_doc):
+    order_date = _order_business_date(order_doc)
+    current_date = getdate(_today())
+    if order_date == current_date:
+        return order_date
+
+    frappe.throw(
+        _(
+            "No se puede generar una factura nueva para una orden del {0}. "
+            "La factura debe emitirse en la misma fecha de la venta. "
+            "Si hubo una falla, registre una contingencia o reintente la factura ya creada."
+        ).format(frappe.utils.formatdate(order_date))
+    )
 
 
 def _sri_forma_pago(code: Optional[str]) -> str:
@@ -349,10 +371,10 @@ def update_order():
     if not order_name:
         frappe.throw(_("Falta el campo 'name' de la orden"))
 
-    # 🔹 Obtener compañía segura
+    # ?? Obtener compania segura
     company = get_user_company(user)
 
-    # 🔹 Obtener orden con validación de permisos reales
+    # ?? Obtener orden con validación de permisos reales
     order = frappe.get_doc("orders", order_name)
 
     if not order.has_permission("write"):
@@ -361,19 +383,19 @@ def update_order():
     if order.company_id != company:
         frappe.throw(_("No tienes permiso para modificar esta orden"))
 
-    # 🔹 No permitir modificar órdenes ya facturadas
+    # ?? No permitir modificar órdenes ya facturadas
     if order.estado == "Factura":
         frappe.throw(_("No se puede modificar una orden ya facturada"))
 
     # ==========================================================
-    # 1️⃣ Actualizar campos simples
+    # 1?? Actualizar campos simples
     # ==========================================================
     for f in ["alias", "email", "estado"]:
         if f in data:
             setattr(order, f, data[f])
 
     # ==========================================================
-    # 2️⃣ Recalcular Items (NO confiar en frontend)
+    # 2?? Recalcular Items (NO confiar en frontend)
     # ==========================================================
     if "items" in data:
         items = data.get("items") or []
@@ -411,7 +433,7 @@ def update_order():
         order.total = subtotal_calc + iva_calc
 
     # ==========================================================
-    # 3️⃣ Validar pagos
+    # 3?? Validar pagos
     # ==========================================================
     if "payments" in data:
         payments = data.get("payments") or []
@@ -437,7 +459,7 @@ def update_order():
                 "monto": amount,
             })
 
-        # 🔥 Validar que pagos cuadren
+        # ?? Validar que pagos cuadren
         if round(total_paid, 2) != round(order.total, 2):
             frappe.throw(_("El total pagado no coincide con el total de la orden"))
 
@@ -728,8 +750,8 @@ def get_all_orders(limit=10, offset=0, created_from=None, created_to=None, order
             "name": doc.name,
             "status": doc.status,
             "type": getattr(doc, "estado", "venta"),
-            "createdAt": doc.creation,             # 👈 ya lo devolvías
-            "createdAtISO": str(doc.creation).replace(" ", "T"),  # 👈 agregado para el front (ISO-like)
+            "createdAt": doc.creation,             # ?? ya lo devolvías
+            "createdAtISO": str(doc.creation).replace(" ", "T"),  # ?? agregado para el front (ISO-like)
             "subtotal": doc.subtotal,
             "iva": doc.iva,
             "total": doc.total,
@@ -831,7 +853,7 @@ def create_order_v2():
 
     issue_invoice = (str(data.get("estado") or "").strip() == "Factura")
     if issue_invoice and not puede_facturar(company_name):
-        frappe.throw(_("No puede facturar, no tiene registrada la firma electrónica"))
+        frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
 
     doc = frappe.get_doc({
         "doctype": "orders",
@@ -848,6 +870,7 @@ def create_order_v2():
         "type_orden": data.get("type_orden", "Servirse"),
         "delivery_address": data.get("delivery_address"),
         "delivery_phone": data.get("delivery_phone"),
+        "status": data.get("status"),
     })
     doc.insert()
 
@@ -884,11 +907,13 @@ def create_and_emit_from_ui_v2_from_order(order_name: str, customer=None):
     if existing:
         return {"status": "exists", "invoice": existing[0]}
 
+    posting_date = _assert_can_emit_invoice_today(order_doc)
+
     company_name = getattr(order_doc, "company_id", None) or get_user_company()
     if not company_name:
-        frappe.throw(_("No se pudo determinar la compañía para emitir la factura"))
+        frappe.throw(_("No se pudo determinar la compania para emitir la factura"))
     if not puede_facturar(company_name):
-        frappe.throw(_("No puede facturar, no tiene registrada la firma electrónica"))
+        frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
 
     company = frappe.get_doc("Company", company_name)
     customer_info = _safe_customer_info(order_doc.customer)
@@ -901,7 +926,7 @@ def create_and_emit_from_ui_v2_from_order(order_name: str, customer=None):
         "customer_name": customer_info["nombre"],
         "customer_tax_id": customer_info["num_identificacion"],
         "customer_email": customer_info["correo"],
-        "posting_date": frappe.utils.today(),
+        "posting_date": posting_date,
         "estab": company.establishmentcode or "001",
         "ptoemi": company.emissionpoint or "001",
         "secuencial": None,
@@ -992,7 +1017,7 @@ def set_order_status(name: str, status: str):
 
     allowed = valid.get(prev, set())
     if status not in allowed:
-        frappe.throw(_("Transición no permitida: {0} → {1}").format(prev or "—", status))
+        frappe.throw(_("Transición no permitida: {0} ? {1}").format(prev or "?", status))
 
     doc.status = status
     doc.save(ignore_permissions=False)  # respeta permisos
@@ -1051,4 +1076,473 @@ def get_product_sales(company, from_date=None, to_date=None, limit=50, offset=0)
     return {
         "result": data,
         "total": total
+    }
+
+def _existing_split_qty_by_order_item(order_name: str) -> dict[str, float]:
+    split_names = frappe.get_all(
+        "Order Split",
+        filters={"order": order_name, "docstatus": ["!=", 2], "status": ["!=", "Cancelada"]},
+        pluck="name",
+    )
+    if not split_names:
+        return {}
+
+    rows = frappe.get_all(
+        "Order Split Item",
+        filters={"parent": ["in", split_names], "parenttype": "Order Split"},
+        fields=["order_item", "qty"],
+    )
+
+    out: dict[str, float] = {}
+    for row in rows:
+        key = row.get("order_item")
+        if not key:
+            continue
+        out[key] = flt(out.get(key, 0)) + flt(row.get("qty"))
+    return out
+
+
+def _normalize_split_items(order_doc, raw_items: list[dict]) -> list[dict]:
+    if not raw_items:
+        frappe.throw(_("Debe enviar al menos un item para dividir la cuenta."))
+
+    source_rows = []
+    by_name = {}
+    by_product = {}
+
+    allocated = _existing_split_qty_by_order_item(order_doc.name)
+
+    for idx, row in enumerate(order_doc.items or []):
+        key = row.name
+        available = flt(row.qty) - flt(allocated.get(key, 0))
+        available = flt(max(0, available))
+        source = {
+            "idx": idx,
+            "name": key,
+            "product": row.product,
+            "qty": flt(row.qty),
+            "rate": flt(row.rate),
+            "tax": getattr(row, "tax", None),
+            "tax_rate": _resolve_tax_rate(row),
+            "available": available,
+        }
+        source_rows.append(source)
+        by_name[key] = source
+        by_product.setdefault(row.product, []).append(source)
+
+    normalized: list[dict] = []
+
+    for req in raw_items:
+        source_item = req.get("order_item") or req.get("source_item") or req.get("order_item_name")
+        product = req.get("product") or req.get("productId")
+        qty = flt(req.get("qty") if req.get("qty") is not None else req.get("quantity"))
+
+        if qty <= 0:
+            frappe.throw(_("La cantidad a dividir debe ser mayor a 0."))
+
+        if source_item:
+            src = by_name.get(source_item)
+            if not src:
+                frappe.throw(_("El item de orden '{0}' no existe.").format(source_item))
+            if flt(src["available"]) < qty:
+                frappe.throw(
+                    _("No hay cantidad suficiente para el item {0}. Disponible: {1}, solicitado: {2}").format(
+                        source_item, src["available"], qty
+                    )
+                )
+
+            src["available"] = flt(src["available"]) - qty
+            normalized.append(
+                {
+                    "order_item": src["name"],
+                    "product": src["product"],
+                    "qty": qty,
+                    "rate": src["rate"],
+                    "tax": src["tax"],
+                    "tax_rate": src["tax_rate"],
+                }
+            )
+            continue
+
+        if not product:
+            frappe.throw(_("Cada item del split debe incluir 'product' o 'order_item'."))
+
+        candidates = sorted(by_product.get(product, []), key=lambda r: r["idx"])
+        if not candidates:
+            frappe.throw(_("El producto {0} no existe en la orden.").format(product))
+
+        pending_qty = qty
+        for src in candidates:
+            if pending_qty <= 0:
+                break
+            available = flt(src["available"])
+            if available <= 0:
+                continue
+
+            take = min(available, pending_qty)
+            src["available"] = available - take
+            pending_qty = flt(pending_qty - take)
+
+            normalized.append(
+                {
+                    "order_item": src["name"],
+                    "product": src["product"],
+                    "qty": take,
+                    "rate": src["rate"],
+                    "tax": src["tax"],
+                    "tax_rate": src["tax_rate"],
+                }
+            )
+
+        if pending_qty > 0:
+            frappe.throw(
+                _("No hay cantidad suficiente para producto {0}. Faltante: {1}").format(product, pending_qty)
+            )
+
+    if not normalized:
+        frappe.throw(_("No se pudo construir una subcuenta valida con los items enviados."))
+
+    return normalized
+
+
+def _append_sales_invoice_payments_from_split(inv, split_doc):
+    if not meta_has_field("Sales Invoice", "payments"):
+        return
+
+    split_total = flt(getattr(split_doc, "total", 0))
+    for p in (getattr(split_doc, "payments", None) or []):
+        forma_pago = _sri_forma_pago(
+            getattr(p, "formas_de_pago", None) or getattr(p, "forma_pago", None) or getattr(p, "code", None)
+        )
+        monto = flt(getattr(p, "monto", None) if getattr(p, "monto", None) is not None else split_total)
+        if monto <= 0 and split_total > 0:
+            monto = split_total
+        if not forma_pago:
+            continue
+
+        row = inv.append("payments", {})
+        child_dt = getattr(row, "doctype", None)
+        if child_dt and meta_has_field(child_dt, "forma_pago"):
+            row.forma_pago = forma_pago
+        elif child_dt and meta_has_field(child_dt, "code"):
+            row.code = forma_pago
+        else:
+            row.forma_pago = forma_pago
+
+        if child_dt and meta_has_field(child_dt, "monto"):
+            row.monto = monto
+        elif child_dt and meta_has_field(child_dt, "amount"):
+            row.amount = monto
+        else:
+            row.monto = monto
+
+
+@frappe.whitelist()
+def split_order(order_name=None, items=None, customer=None, split_label=None, payments=None):
+    data = {}
+    try:
+        data = frappe.request.get_json() or {}
+    except Exception:
+        data = {}
+
+    order_name = order_name or data.get("order_name") or data.get("name")
+    raw_items = items or data.get("items") or []
+    customer = customer or data.get("customer")
+    split_label = split_label or data.get("split_label") or data.get("alias")
+    payments = payments or data.get("payments") or []
+
+    if not order_name:
+        frappe.throw(_("Debe enviar el nombre de la orden a dividir."))
+
+    if not frappe.has_permission("orders", "write"):
+        frappe.throw(_("No tienes permiso para dividir cuentas."))
+
+    order_doc = frappe.get_doc("orders", order_name)
+    user_company = get_user_company()
+    if order_doc.company_id != user_company:
+        frappe.throw(_("No tienes permiso para dividir esta orden."))
+
+    if str(order_doc.estado or "").strip() == "Factura":
+        frappe.throw(_("No se puede dividir una orden ya facturada."))
+
+    if frappe.db.exists("Sales Invoice", {"order": order_doc.name, "docstatus": ["!=", 2]}):
+        frappe.throw(_("No se puede dividir una orden que ya tiene factura generada."))
+
+    normalized_items = _normalize_split_items(order_doc, raw_items)
+
+    split_doc = frappe.get_doc(
+        {
+            "doctype": "Order Split",
+            "order": order_doc.name,
+            "company_id": order_doc.company_id,
+            "customer": customer or order_doc.customer,
+            "split_label": split_label,
+            "status": "Draft",
+        }
+    )
+
+    for row in normalized_items:
+        split_doc.append(
+            "items",
+            {
+                "order_item": row["order_item"],
+                "product": row["product"],
+                "qty": row["qty"],
+                "rate": row["rate"],
+                "tax": row["tax"],
+                "tax_rate": row["tax_rate"],
+            },
+        )
+
+    for p in payments:
+        forma_pago = p.get("formas_de_pago") or p.get("method") or p.get("code")
+        amount = flt(p.get("monto") if p.get("monto") is not None else p.get("amount"))
+        if not forma_pago:
+            frappe.throw(_("Cada pago debe incluir una forma de pago valida."))
+        if amount <= 0:
+            frappe.throw(_("El monto de cada pago debe ser mayor a 0."))
+
+        split_doc.append(
+            "payments",
+            {
+                "formas_de_pago": forma_pago,
+                "monto": amount,
+            },
+        )
+
+    split_doc.insert(ignore_permissions=False)
+
+    return {
+        "message": _("Subcuenta creada exitosamente"),
+        "split": {
+            "name": split_doc.name,
+            "order": split_doc.order,
+            "status": split_doc.status,
+            "subtotal": split_doc.subtotal,
+            "iva": split_doc.iva,
+            "total": split_doc.total,
+            "sales_invoice": split_doc.sales_invoice,
+        },
+    }
+
+
+@frappe.whitelist()
+def get_order_splits(order_name: str):
+    if not frappe.has_permission("orders", "read"):
+        frappe.throw(_("No tienes permiso para ver ordenes."))
+
+    order_doc = frappe.get_doc("orders", order_name)
+    user_company = get_user_company()
+    if order_doc.company_id != user_company:
+        frappe.throw(_("No tienes permiso para ver esta orden."))
+
+    split_names = frappe.get_all(
+        "Order Split",
+        filters={"order": order_doc.name, "docstatus": ["!=", 2]},
+        order_by="creation asc",
+        pluck="name",
+    )
+
+    splits = []
+    for split_name in split_names:
+        split_doc = frappe.get_doc("Order Split", split_name)
+
+        items = []
+        for it in split_doc.items or []:
+            items.append(
+                {
+                    "order_item": it.order_item,
+                    "productId": it.product,
+                    "productName": _safe_product_name(it.product),
+                    "quantity": flt(it.qty),
+                    "price": flt(it.rate),
+                    "tax_rate": flt(it.tax_rate),
+                    "subtotal": flt(it.line_subtotal),
+                    "iva": flt(it.line_iva),
+                    "total": flt(it.line_total),
+                }
+            )
+
+        split_payments = []
+        for p in split_doc.payments or []:
+            split_payments.append(
+                {
+                    "method": p.formas_de_pago,
+                    "amount": flt(p.monto),
+                }
+            )
+
+        sri = {"status": "Sin factura"}
+        if split_doc.sales_invoice:
+            inv = frappe.db.get_value(
+                "Sales Invoice",
+                split_doc.sales_invoice,
+                ["name", "einvoice_status", "authorization_datetime", "access_key", "estab", "ptoemi", "secuencial", "grand_total"],
+                as_dict=True,
+            )
+            if inv:
+                parts = [inv.get("estab") or "", inv.get("ptoemi") or "", inv.get("secuencial") or ""]
+                number = "-".join([p for p in parts if p]).strip("-") or None
+                sri = {
+                    "status": inv.get("einvoice_status") or "Draft",
+                    "authorization_datetime": inv.get("authorization_datetime"),
+                    "access_key": inv.get("access_key"),
+                    "invoice": inv.get("name"),
+                    "number": number,
+                    "grand_total": inv.get("grand_total"),
+                }
+
+        splits.append(
+            {
+                "name": split_doc.name,
+                "status": split_doc.status,
+                "split_label": split_doc.split_label,
+                "customer": split_doc.customer,
+                "subtotal": flt(split_doc.subtotal),
+                "iva": flt(split_doc.iva),
+                "total": flt(split_doc.total),
+                "sales_invoice": split_doc.sales_invoice,
+                "items": items,
+                "payments": split_payments,
+                "sri": sri,
+            }
+        )
+
+    allocated = _existing_split_qty_by_order_item(order_doc.name)
+    remaining = []
+    for row in order_doc.items or []:
+        allocated_qty = flt(allocated.get(row.name, 0))
+        remaining_qty = flt(max(0, flt(row.qty) - allocated_qty))
+        remaining.append(
+            {
+                "order_item": row.name,
+                "productId": row.product,
+                "productName": _safe_product_name(row.product),
+                "original_qty": flt(row.qty),
+                "allocated_qty": allocated_qty,
+                "remaining_qty": remaining_qty,
+                "price": flt(row.rate),
+                "tax_rate": _resolve_tax_rate(row),
+            }
+        )
+
+    return {
+        "order": order_doc.name,
+        "splits": splits,
+        "remaining": remaining,
+    }
+
+
+@frappe.whitelist()
+def create_and_emit_from_split(split_name: str):
+    if not split_name:
+        frappe.throw(_("Debe proporcionar el nombre de la subcuenta."))
+
+    split_doc = frappe.get_doc("Order Split", split_name)
+    order_doc = frappe.get_doc("orders", split_doc.order)
+
+    user_company = get_user_company()
+    if split_doc.company_id != user_company:
+        frappe.throw(_("No tienes permiso para facturar esta subcuenta."))
+
+    if split_doc.status == "Cancelada":
+        frappe.throw(_("No se puede facturar una subcuenta cancelada."))
+
+    if split_doc.sales_invoice and frappe.db.exists("Sales Invoice", split_doc.sales_invoice):
+        return {"status": "exists", "invoice": split_doc.sales_invoice}
+
+    posting_date = _assert_can_emit_invoice_today(order_doc)
+
+    company_name = split_doc.company_id
+    if not company_name:
+        frappe.throw(_("No se pudo determinar la compania para emitir la factura."))
+    if not puede_facturar(company_name):
+        frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
+
+    customer_name = split_doc.customer or order_doc.customer
+    customer_info = _safe_customer_info(customer_name)
+
+    company = frappe.get_doc("Company", company_name)
+    inv = frappe.new_doc("Sales Invoice")
+    inv.update(
+        {
+            "order": order_doc.name,
+            "company_id": company_name,
+            "customer": customer_name,
+            "customer_name": customer_info["nombre"],
+            "customer_tax_id": customer_info["num_identificacion"],
+            "customer_email": customer_info["correo"],
+            "posting_date": posting_date,
+            "estab": company.establishmentcode or "001",
+            "ptoemi": company.emissionpoint or "001",
+            "secuencial": None,
+            "einvoice_status": "BORRADOR",
+            "status": "BORRADOR",
+            "environment": _environment_label(company),
+        }
+    )
+
+    for it in split_doc.items or []:
+        inv.append(
+            "items",
+            {
+                "item_code": it.product,
+                "item_name": _safe_product_name(it.product),
+                "qty": flt(it.qty),
+                "rate": flt(it.rate),
+                "tax_rate": flt(it.tax_rate),
+            },
+        )
+
+    _append_sales_invoice_payments_from_split(inv, split_doc)
+
+    inv.insert(ignore_permissions=True)
+
+    split_doc.db_set("sales_invoice", inv.name, update_modified=False)
+
+    api_result = emitir_factura_por_invoice(inv.name)
+    persist_after_emit(inv, api_result, "factura")
+
+    status = str(api_result.get("status") or "").upper()
+    if status == EInvoiceStatus.AUTHORIZED.value:
+        split_doc.db_set("status", "Facturada", update_modified=False)
+        return build_emit_response(inv.name, api_result)
+
+    if status == EInvoiceStatus.ERROR.value and not _is_recoverable_error(api_result.get("messages")):
+        return build_emit_response(inv.name, api_result)
+
+    final_result = _sync_status_or_enqueue(inv.name, api_result)
+    final_status = str(final_result.get("status") or "").upper()
+    if final_status == EInvoiceStatus.AUTHORIZED.value:
+        split_doc.db_set("status", "Facturada", update_modified=False)
+
+    return build_emit_response(inv.name, final_result)
+
+@frappe.whitelist()
+def delete_order_split(split_name: str):
+    if not split_name:
+        frappe.throw(_("Debe proporcionar el nombre de la subcuenta."))
+
+    if not frappe.has_permission("Order Split", "delete"):
+        frappe.throw(_("No tienes permiso para eliminar subcuentas."))
+
+    split_doc = frappe.get_doc("Order Split", split_name)
+
+    user_company = get_user_company()
+    if split_doc.company_id != user_company:
+        frappe.throw(_("No tienes permiso para eliminar esta subcuenta."))
+
+    invoice_name = split_doc.sales_invoice
+    if invoice_name:
+        inv = frappe.db.get_value("Sales Invoice", invoice_name, ["name", "docstatus"], as_dict=True)
+        if inv and cint(inv.get("docstatus")) != 2:
+            frappe.throw(
+                _("No se puede eliminar la subcuenta porque ya tiene una factura activa ({0}).").format(invoice_name)
+            )
+
+    split_doc.delete(ignore_permissions=False)
+
+    return {
+        "message": _("Subcuenta eliminada exitosamente"),
+        "name": split_name,
     }

@@ -139,57 +139,103 @@ def get_all_invoices(limit=10, offset=0):
     }
 
 
+
+
+def _build_order_detail_item(product_id, product_name, qty, rate, tax_rate):
+    qty = flt(qty)
+    rate = flt(rate)
+    tax_rate = flt(tax_rate or 0)
+    subtotal = flt(qty * rate)
+    iva = flt(subtotal * (tax_rate / 100.0))
+    total = flt(subtotal + iva)
+    return {
+        "productId": product_id,
+        "productName": product_name or product_id,
+        "quantity": qty,
+        "price": rate,
+        "tax_rate": tax_rate,
+        "subtotal": subtotal,
+        "iva": iva,
+        "total": total,
+    }
+
+
+def _get_order_items_payload(order_name: str, invoice_name: str | None = None):
+    if invoice_name:
+        rows = frappe.get_all(
+            "Sales Invoice Item",
+            filters={"parent": invoice_name, "docstatus": ["!=", 2]},
+            fields=["item_code", "item_name", "qty", "rate", "tax_rate"],
+        )
+        return [
+            _build_order_detail_item(
+                r.get("item_code"),
+                r.get("item_name"),
+                r.get("qty"),
+                r.get("rate"),
+                r.get("tax_rate"),
+            )
+            for r in rows
+        ]
+
+    order_rows = frappe.get_all(
+        "Items",
+        filters={"parent": order_name, "parenttype": "orders", "docstatus": ["!=", 2]},
+        fields=["product", "qty", "rate", "tax_rate"],
+    )
+
+    prod_ids = [r.get("product") for r in order_rows if r.get("product")]
+    prod_map = {}
+    if prod_ids:
+        product_catalog = frappe.get_all(
+            "Producto",
+            filters={"name": ["in", prod_ids]},
+            fields=["name", "nombre"],
+        )
+        prod_map = {p.get("name"): (p.get("nombre") or p.get("name")) for p in product_catalog}
+
+    return [
+        _build_order_detail_item(
+            r.get("product"),
+            prod_map.get(r.get("product"), r.get("product")),
+            r.get("qty"),
+            r.get("rate"),
+            r.get("tax_rate"),
+        )
+        for r in order_rows
+    ]
+
+
 @frappe.whitelist()
 def get_order_detail(name: str):
     if not name:
         frappe.throw(_("Falta el ID de la orden"))
     if not frappe.has_permission("orders", "read"):
-        frappe.throw(_("No tienes permiso para ver órdenes"))
+        frappe.throw(_("No tienes permiso para ver ordenes"))
 
     doc = frappe.get_doc("orders", name)
 
-    # Prefetch posible factura asociada
+    user_company = get_user_company()
+    if doc.company_id != user_company:
+        frappe.throw(_("No tienes permiso para ver esta orden"))
+
     inv = frappe.db.get_value(
         "Sales Invoice",
         {"order": name, "docstatus": ["!=", 2]},
-        ["name","einvoice_status","authorization_datetime","access_key",
-         "estab","ptoemi","secuencial","grand_total"],
-        as_dict=True
+        [
+            "name",
+            "einvoice_status",
+            "authorization_datetime",
+            "access_key",
+            "estab",
+            "ptoemi",
+            "secuencial",
+            "grand_total",
+        ],
+        as_dict=True,
     )
 
-    # Ítems (si hay factura, usa los de la factura)
-    items = []
-    if inv:
-        inv_items = frappe.get_all("Sales Invoice Item",
-            filters={"parent": inv["name"], "docstatus": ["!=", 2]},
-            fields=["item_code","item_name","qty","rate","tax_rate"])
-        for r in inv_items:
-            qty = flt(r.qty); rate = flt(r.rate); tax_rate = flt(r.tax_rate or 0)
-            subtotal = flt(qty * rate); iva = flt(subtotal * (tax_rate/100)); total = flt(subtotal + iva)
-            items.append({
-                "productId": r.item_code, "productName": r.item_name or r.item_code,
-                "quantity": qty, "price": rate, "tax_rate": tax_rate,
-                "subtotal": subtotal, "iva": iva, "total": total,
-            })
-    else:
-        order_items = frappe.get_all("Items",
-            filters={"parent": name, "parenttype": "orders", "docstatus": ["!=", 2]},
-            fields=["product","qty","rate","tax_rate"])
-        # catálogo productos (opcional)
-        prod_ids = [r.product for r in order_items if r.product]
-        prod_map = {}
-        if prod_ids:
-            for p in frappe.get_all("Producto", filters={"name": ["in", prod_ids]}, fields=["name","nombre"]):
-                prod_map[p.name] = p.nombre or p.name
-        for r in order_items:
-            qty = flt(r.qty); rate = flt(r.rate); tax_rate = flt(r.tax_rate or 0)
-            subtotal = flt(qty * rate); iva = flt(subtotal * (tax_rate/100)); total = flt(subtotal + iva)
-            items.append({
-                "productId": r.product,
-                "productName": prod_map.get(r.product, r.product),
-                "quantity": qty, "price": rate, "tax_rate": tax_rate,
-                "subtotal": subtotal, "iva": iva, "total": total,
-            })
+    items = _get_order_items_payload(name, inv.get("name") if inv else None)
 
     if inv:
         number = "-".join([x for x in [inv.get("estab"), inv.get("ptoemi"), inv.get("secuencial")] if x]).strip("-") or None
@@ -207,6 +253,8 @@ def get_order_detail(name: str):
     data = {
         "name": doc.name,
         "type": getattr(doc, "estado", "venta"),
+        "status": getattr(doc, "status", None),
+        "alias": getattr(doc, "alias", None),
         "createdAt": doc.creation,
         "subtotal": doc.subtotal,
         "iva": doc.iva,
