@@ -15,7 +15,7 @@ from restaurante_app.facturacion_bmarc.einvoice.utils import _parse_fecha_autori
 
 def _fmt_errors(resp: dict) -> str:
     if not resp:
-        return "Respuesta vacÃƒÆ’Ã‚Â­a"
+        return "Respuesta vacía"
     items = []
     for it in (resp.get("errors") or []):
         code = it.get("code") or "ERR"
@@ -34,7 +34,7 @@ def _fmt_errors(resp: dict) -> str:
 
 class SalesInvoice(Document):
     def validate(self):
-        # Calcula totales si no estÃƒÆ’Ã‚Â¡n seteados
+        # Calcula totales si no están seteados
         if not self.posting_date:
             self.posting_date = frappe.utils.today()
         if not self.total_without_tax or not self.grand_total:
@@ -73,7 +73,7 @@ def create_from_ui():
       "customer": "CLI-0001",
       "posting_date": "YYYY-MM-DD",
       "items": [{ "item_code","item_name","qty","rate","tax_rate" }],
-      "payment": { "code": "01", "name": "EFECTIVO", "amount": 123.45 }, # opcional (no se guarda aquÃƒÆ’Ã‚Â­)
+      "payment": { "code": "01", "name": "EFECTIVO", "amount": 123.45 }, # opcional (no se guarda aquí)
       "auto_queue": true|false
     }
     """
@@ -85,7 +85,7 @@ def create_from_ui():
     subtotal_calc, iva_calc, grand_total = _calc_totals_from_payload(data.get("items") or [])
     UMBRAL = 50.0
     if _is_consumidor_final(data["customer"]) and grand_total >= UMBRAL:
-        frappe.throw(_(f"El consumidor final no puede facturar por un monto mayor o igual a ${UMBRAL:.2f}. Ingrese una identificaciÃƒÆ’Ã‚Â³n vÃƒÆ’Ã‚Â¡lida."))
+        frappe.throw(_(f"El consumidor final no puede facturar por un monto mayor o igual a ${UMBRAL:.2f}. Ingrese una identificación válida."))
 
         
 
@@ -106,8 +106,8 @@ def create_from_ui():
         # Estas 3 vienen de Company; si ya las tienes como campos en Sales Invoice, se guardan para reusar
         "estab": company.establishmentcode or "001",
         "ptoemi": company.emissionpoint or "001",
-        # El secuencial puede ponerse aquÃƒÆ’Ã‚Â­ o dejar que lo asigne el builder si no existe;
-        # para no duplicar, NO lo seteamos aquÃƒÆ’Ã‚Â­ (lo setea el builder a la hora de generar el XML)
+        # El secuencial puede ponerse aquí o dejar que lo asigne el builder si no existe;
+        # para no duplicar, NO lo seteamos aquí (lo setea el builder a la hora de generar el XML)
         # "secuencial": obtener_y_actualizar_secuencial(company.name),
 
         "einvoice_status": "Draft"
@@ -116,7 +116,7 @@ def create_from_ui():
     for it in (data.get("items") or []):
         inv.append("items", {
             "item_code": it.get("item_code") or "ADHOC",
-            "item_name": it.get("item_name") or it.get("description") or it.get("item_code") or "ÃƒÆ’Ã‚Âtem",
+            "item_name": it.get("item_name") or it.get("description") or it.get("item_code") or "Ítem",
             "qty": float(it.get("qty") or 0),
             "rate": float(it.get("rate") or 0),
             "tax_rate": float(it.get("tax_rate") or 0),
@@ -126,7 +126,7 @@ def create_from_ui():
 
     result = None
     if data.get("auto_queue"):
-        result = queue_einvoice(inv.name, raise_on_error=0)   # ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‹â€  no dispara excepciÃƒÆ’Ã‚Â³n
+        result = queue_einvoice(inv.name, raise_on_error=0)   # 👈 no dispara excepción
 
     return {
         "ok": (result or {}).get("status", "Draft") not in ("Error","Rejected"),
@@ -142,8 +142,8 @@ def queue_einvoice(invoice_name: str, raise_on_error: int = 1, clear_on_sri_45: 
     Flujo:
     1) Genera XML (xml_builder)  -> guarda access_key, estab/pto/secuencial/fecha emision si aplica
     2) Firma (firmar_xml)        -> estado "Signed" o error
-    3) EnvÃƒÆ’Ã‚Â­a al SRI (enviar_a_sri)-> estado "Submitted"/"Error"
-    4) Consulta autorizaciÃƒÆ’Ã‚Â³n     -> estado "Authorized"/"Rejected" y guarda fecha, mensaje, adjuntos si tienes
+    3) Envía al SRI (enviar_a_sri)-> estado "Submitted"/"Error"
+    4) Consulta autorización     -> estado "Authorized"/"Rejected" y guarda fecha, mensaje, adjuntos si tienes
     """
     inv = frappe.get_doc("Sales Invoice", invoice_name)
 
@@ -210,13 +210,13 @@ def queue_einvoice(invoice_name: str, raise_on_error: int = 1, clear_on_sri_45: 
             frappe.db.commit()
 
         persist_status(inv, "Error", motivo)
-        if int(raise_on_error): frappe.throw(_("SRI devolviÃƒÆ’Ã‚Â³ error: {0}").format(motivo))
+        if int(raise_on_error): frappe.throw(_("SRI devolvió error: {0}").format(motivo))
         return {"status": "Error", "code": "SRI_45" if is_sri_45 else "SRI_ERR", "message": motivo}
 
-    # EnvÃƒÆ’Ã‚Â­o exitoso
+    # Envío exitoso
     persist_status(inv, envio.get("estado") or "Submitted", envio.get("mensaje") or "")
 
-    # 4) Consultar autorizaciÃƒÆ’Ã‚Â³n
+    # 4) Consultar autorización
     consulta = consultar_autorizacion(inv.get("access_key"), inv.name, ambiente_xml, company=inv.company_id)
     estado = (consulta.get("estado") or "").upper()
 
@@ -249,7 +249,7 @@ def queue_einvoice(invoice_name: str, raise_on_error: int = 1, clear_on_sri_45: 
         try:
             enviar_factura_sales_invoice(inv.name)
         except Exception:
-            frappe.log_error(frappe.get_traceback(), "Enviar factura por email fallÃƒÆ’Ã‚Â³")
+            frappe.log_error(frappe.get_traceback(), "Enviar factura por email falló")
 
         return {"status": "AUTORIZADO", "access_key": inv.get("access_key")}
 
@@ -258,7 +258,7 @@ def queue_einvoice(invoice_name: str, raise_on_error: int = 1, clear_on_sri_45: 
     persist_status(inv, human, consulta.get("mensaje") or "")
     return {"status": human, "access_key": inv.get("access_key")}
 def safe_db_set(doc, values: dict, update_modified=False):
-    """Setea sÃƒÆ’Ã‚Â³lo campos existentes; lo que no exista, lo deja como Comment."""
+    """Setea sólo campos existentes; lo que no exista, lo deja como Comment."""
     missing = []
     to_set = {}
     for k, v in (values or {}).items():
@@ -361,6 +361,6 @@ def _calc_totals_from_payload(items: list[dict]) -> tuple[float, float, float]:
 
 
 def _is_consumidor_final(cliente_name: str) -> bool:
-    # Normaliza por si viene con mayÃƒÆ’Ã‚Âºsculas/minÃƒÆ’Ã‚Âºsculas o espacios
+    # Normaliza por si viene con mayúsculas/minúsculas o espacios
     tipo = (frappe.db.get_value("Cliente", cliente_name, "tipo_identificacion") or "").strip().lower()
     return tipo.startswith("07") or "consumidor final" in tipo

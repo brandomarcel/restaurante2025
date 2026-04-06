@@ -13,7 +13,11 @@ from restaurante_app.facturacion_bmarc.api.open_factura_client import (
 )
 from restaurante_app.facturacion_bmarc.einvoice.edocs import sri_estado_and_update_data
 from restaurante_app.facturacion_bmarc.einvoice.utils import puede_facturar
-
+from restaurante_app.inventarios_bmarc.api.stock import (
+    build_stock_delta,
+    create_inventory_movement_entry,
+    validate_stock_delta,
+)
 
 def meta_has_field(doctype: str, fieldname: str) -> bool:
     try:
@@ -248,10 +252,42 @@ class orders(Document):
             "payments": self.payments or [],
         }
 
+    def _build_inventory_delta(self):
+        previous_doc = None if self.is_new() else self.get_doc_before_save()
+        previous_rows = previous_doc.items if previous_doc else []
+        return build_stock_delta(previous_rows, self.items or [])
+
+    def _apply_inventory_delta(self, delta_map, default_movement_type: str, notes: str):
+        if not delta_map:
+            return None
+
+        movement_type = default_movement_type
+        deltas = list(delta_map.values())
+        if movement_type == "Ajuste":
+            if all(delta < 0 for delta in deltas):
+                movement_type = "Venta"
+            elif all(delta > 0 for delta in deltas):
+                movement_type = "Reversa Venta"
+
+        return create_inventory_movement_entry(
+            company_id=self.company_id,
+            qty_map=delta_map,
+            movement_type=movement_type,
+            reference_doctype="orders",
+            reference_name=self.name,
+            notes=notes,
+            ignore_permissions=True,
+        )
+
     def before_save(self):
         if self.customer and not frappe.db.exists("Cliente", self.customer):
             frappe.throw(_("El Cliente '{0}' no existe.").format(self.customer))
         self.calculate_totals()
+
+        inventory_delta = self._build_inventory_delta()
+        self.flags.inventory_stock_delta = inventory_delta
+        if inventory_delta:
+            validate_stock_delta(self.company_id, inventory_delta)
 
     def _publish_to_company_users(self, action: str):
         company = getattr(self, "company_id", None) or getattr(self, "empresa", None) or "DEFAULT"
@@ -278,20 +314,30 @@ class orders(Document):
                 after_commit=True
             )
 
-
-
-
-
     def after_insert(self):
+        self._apply_inventory_delta(
+            getattr(self.flags, "inventory_stock_delta", {}) or build_stock_delta([], self.items or []),
+            "Venta",
+            f"Salida automatica por creacion de orden {self.name}",
+        )
         self._publish_to_company_users("insert")
 
     def on_update(self):
+        if not getattr(self.flags, "in_insert", False):
+            self._apply_inventory_delta(
+                getattr(self.flags, "inventory_stock_delta", {}),
+                "Ajuste",
+                f"Ajuste automatico por actualizacion de orden {self.name}",
+            )
         self._publish_to_company_users("update")
 
     def on_trash(self):
+        self._apply_inventory_delta(
+            build_stock_delta(self.items or [], []),
+            "Reversa Venta",
+            f"Reversa automatica por eliminacion de orden {self.name}",
+        )
         self._publish_to_company_users("delete")
-
-
 
     def calculate_totals(self):
         subtotal = 0.0
@@ -1546,3 +1592,5 @@ def delete_order_split(split_name: str):
         "message": _("Subcuenta eliminada exitosamente"),
         "name": split_name,
     }
+
+

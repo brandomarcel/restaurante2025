@@ -1,0 +1,134 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:INV-MOV-{#####}",
+ "creation": "2026-03-30 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "posting_date",
+  "movement_type",
+  "company_id",
+  "reference_doctype",
+  "reference_name",
+  "notes",
+  "items",
+  "total_items",
+  "total_quantity",
+  "is_applied"
+ ],
+ "fields": [
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Fecha",
+   "reqd": 1
+  },
+  {
+   "fieldname": "movement_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Tipo de movimiento",
+   "options": "Entrada\nSalida\nAjuste\nVenta\nReversa Venta\nConsumo\nDevolucion",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company_id",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Compania",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Documento origen",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Registro origen",
+   "options": "reference_doctype"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notas"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Detalle",
+   "options": "Detalle Movimiento Inventario",
+   "reqd": 1
+  },
+  {
+   "fieldname": "total_items",
+   "fieldtype": "Int",
+   "label": "Total items",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_quantity",
+   "fieldtype": "Float",
+   "label": "Total unidades",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_applied",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Aplicado",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-03-30 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Inventarios BMARC",
+ "name": "Movimiento de Inventario",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Gerente",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Mesero"
+  }
+ ],
+ "row_format": "Dynamic",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "movement_type"
+}

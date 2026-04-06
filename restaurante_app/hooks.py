@@ -1,4 +1,4 @@
-app_name = "restaurante_app"
+﻿app_name = "restaurante_app"
 app_title = "Restaurante BMARC"
 app_publisher = "none"
 app_description = "Sistema de restaurante"
