@@ -73,7 +73,7 @@ def _environment_label(company) -> Optional[str]:
     if ambiente == "PRUEBAS":
         return "Pruebas"
     if ambiente == "PRODUCCION":
-        return "Produccion"
+        return "Producción"
     return None
 
 
