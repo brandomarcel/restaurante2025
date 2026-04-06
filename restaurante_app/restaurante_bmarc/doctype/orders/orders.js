@@ -20,25 +20,25 @@ frappe.ui.form.on("orders", {
         //     }, 'Acciones'); // Agrúpalo bajo "Acciones" si quieres
         // }
 
+        const isSystemManager = frappe.user.has_role('System Manager');
+        const canShowAdminEmitButton = isSystemManager && !frm.is_new() && !frm.doc.sales_invoice && frm.doc.estado_sri !== 'AUTORIZADO';
 
-
-        if (frm.doc.estado === 'Nota Venta' && frm.doc.estado_sri != 'AUTORIZADO') {
-            frm.add_custom_button('Facturar', () => {
+        if (canShowAdminEmitButton) {
+            frm.add_custom_button('Emitir Factura Admin', () => {
                 frappe.call({
-                    method: "restaurante_app.restaurante_bmarc.doctype.orders.orders.create_and_emit_from_ui_v2_from_order",
+                    method: "restaurante_app.restaurante_bmarc.doctype.orders.orders.admin_emit_invoice_for_order",
                     args: {
                         order_name: frm.doc.name,
-                        customer: null
                     },
                     callback(r) {
                         if (r.message) {
-                            frappe.msgprint(r.message);
+                            const status = r.message.status || 'Procesado';
+                            frappe.msgprint(__(`Estado de facturación: ${status}`));
                             frm.reload_doc();
                         }
                     },
                 });
             }, 'Acciones'); // Agrúpalo bajo "Acciones" si quieres
         }
-
     }
 });

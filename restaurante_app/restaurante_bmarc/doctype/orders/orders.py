@@ -922,7 +922,7 @@ def create_order_v2():
 
     if issue_invoice:
         frappe.enqueue(
-            "restaurante_app.restaurante_bmarc.doctype.orders.orders.create_and_emit_from_ui_v2_from_order",
+            "restaurante_app.restaurante_bmarc.doctype.orders.orders.emit_invoice_for_order_job",
             queue="short",
             job_name=f"einvoice-for-{doc.name}",
             order_name=doc.name,
@@ -938,8 +938,7 @@ def create_order_v2():
     }
 
     
-@frappe.whitelist()
-def create_and_emit_from_ui_v2_from_order(order_name: str, customer=None):
+def _emit_invoice_for_order(order_name: str):
     if not order_name:
         frappe.throw(_("Debe proporcionar el nombre de la orden"))
 
@@ -1010,6 +1009,21 @@ def create_and_emit_from_ui_v2_from_order(order_name: str, customer=None):
 
     final_result = _sync_status_or_enqueue(inv.name, api_result)
     return build_emit_response(inv.name, final_result)
+
+
+def emit_invoice_for_order_job(order_name: str):
+    return _emit_invoice_for_order(order_name)
+
+
+@frappe.whitelist()
+def admin_emit_invoice_for_order(order_name: str):
+    user = frappe.session.user
+    roles = set(frappe.get_roles(user))
+    is_admin_user = user == "Administrator" or "System Manager" in roles
+    if not is_admin_user:
+        frappe.throw(_("Solo un administrador puede emitir facturas desde este botón"))
+
+    return _emit_invoice_for_order(order_name)
 
 
 # =========================================================
