@@ -1,6 +1,10 @@
 # restaurante_app/facturacion_bmarc/api/ms_mapper.py
 from __future__ import annotations
 import frappe
+from restaurante_app.facturacion_bmarc.einvoice.additional_fields import (
+    add_invoice_additional_fields_to_payload,
+    ensure_invoice_additional_fields_saved,
+)
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List, Tuple, Optional
 from datetime import date
@@ -173,6 +177,7 @@ def _totales_header_from_buckets(buckets: Dict[int, Dict[str, Decimal]]) -> List
 def build_invoice_payload_from_sales_invoice(invoice_name: str) -> Dict[str, Any]:
     inv = frappe.get_doc("Sales Invoice", invoice_name)
     company = frappe.get_doc("Company", inv.company_id)
+    inv = ensure_invoice_additional_fields_saved(inv, company)
     ambiente = _ambiente_from_company(company)           # "1"|"2"
     env = _env_from_company(company)                     # "test"|"prod"
     estab, pto = _get_estab_pto(company, inv)
@@ -232,7 +237,7 @@ def build_invoice_payload_from_sales_invoice(invoice_name: str) -> Dict[str, Any
             ]
         }
     }
-    return payload
+    return add_invoice_additional_fields_to_payload(payload, inv)
 
 # ============== NOTA DE CRÉDITO ==============
 
@@ -249,6 +254,7 @@ def build_credit_note_payload_from_return(invoice_name: str, motivo: Optional[st
 
     original = frappe.get_doc("Sales Invoice", inv.return_against)
     company = frappe.get_doc("Company", inv.company_id)
+    inv = ensure_invoice_additional_fields_saved(inv, company)
 
     ambiente = _ambiente_from_company(company)   # "1"|"2"
     env = _env_from_company(company)             # "test"|"prod"
@@ -331,4 +337,4 @@ def build_credit_note_payload_from_return(invoice_name: str, motivo: Optional[st
             ]
         }
     }
-    return payload
+    return add_invoice_additional_fields_to_payload(payload, inv)

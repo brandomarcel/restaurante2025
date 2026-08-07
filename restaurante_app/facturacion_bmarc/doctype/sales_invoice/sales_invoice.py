@@ -11,6 +11,11 @@ from restaurante_app.restaurante_bmarc.api.sendFactura import enviar_factura_sal
 # Usa el builder NUEVO (lee Sales Invoice)
 from restaurante_app.facturacion_bmarc.einvoice.xml_builder import generar_xml_factura_desde_invoice
 from restaurante_app.facturacion_bmarc.einvoice.utils import _parse_fecha_autorizacion
+from restaurante_app.facturacion_bmarc.einvoice.additional_fields import (
+    ensure_invoice_additional_fields_saved,
+    set_invoice_additional_field,
+    sync_default_additional_fields,
+)
 # ---------------- Helpers locales ----------------
 
 def _fmt_errors(resp: dict) -> str:
@@ -37,6 +42,7 @@ class SalesInvoice(Document):
         # Calcula totales si no están seteados
         if not self.posting_date:
             self.posting_date = frappe.utils.today()
+        sync_default_additional_fields(self)
         if not self.total_without_tax or not self.grand_total:
             subtotal = 0.0
             tax_total = 0.0
@@ -122,6 +128,13 @@ def create_from_ui():
             "tax_rate": float(it.get("tax_rate") or 0),
         })
 
+    for row in (data.get("additional_fields") or []):
+        set_invoice_additional_field(
+            inv,
+            row.get("field_name") or row.get("nombre"),
+            row.get("field_value") or row.get("valor"),
+        )
+
     inv.insert(ignore_permissions=True)
 
     result = None
@@ -133,6 +146,14 @@ def create_from_ui():
         "invoice": inv.name,
         "einvoice": result
     }
+
+
+@frappe.whitelist()
+def set_additional_field(invoice_name: str, field_name: str, field_value: str):
+    inv = frappe.get_doc("Sales Invoice", invoice_name)
+    set_invoice_additional_field(inv, field_name, field_value)
+    inv.save(ignore_permissions=True)
+    return {"ok": True, "invoice": inv.name}
 
 # ---------------- Flujo SRI usando TU microservicio/funciones ----------------
 
@@ -146,6 +167,7 @@ def queue_einvoice(invoice_name: str, raise_on_error: int = 1, clear_on_sri_45: 
     4) Consulta autorización     -> estado "Authorized"/"Rejected" y guarda fecha, mensaje, adjuntos si tienes
     """
     inv = frappe.get_doc("Sales Invoice", invoice_name)
+    inv = ensure_invoice_additional_fields_saved(inv)
 
     # 1) Generar XML desde la factura (usa tu builder)
     try:

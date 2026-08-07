@@ -5,6 +5,10 @@ import json
 import hashlib
 import requests
 import frappe
+from restaurante_app.facturacion_bmarc.einvoice.additional_fields import (
+    add_invoice_additional_fields_to_payload,
+    ensure_invoice_additional_fields_saved,
+)
 
 from typing import Any, Dict, Optional, Tuple
 from requests.exceptions import HTTPError, Timeout, ConnectionError
@@ -200,6 +204,7 @@ def _build_invoice_payload(inv, company) -> Dict[str, Any]:
     Construye el JSON canónico para /api/v1/invoices/emit
     desde un Sales Invoice + Company.
     """
+    inv = ensure_invoice_additional_fields_saved(inv, company)
     env = obtener_env(company)  # 'test'|'prod'
     
 
@@ -303,7 +308,7 @@ def _build_invoice_payload(inv, company) -> Dict[str, Any]:
 
     # Idempotencia (opcional; tu micro la genera si no va)
     payload["idempotency_key"] = _idempotency_key(infoTributaria, infoFactura)
-    return payload
+    return add_invoice_additional_fields_to_payload(payload, inv)
 
 def _map_payments(pay_rows, total: float):
     """
@@ -329,6 +334,7 @@ def _build_credit_note_payload(inv, company, motivo_global: str = "ANULACION") -
     Construye el JSON canónico para /api/v1/credit-notes/emit
     Nota: numDocModificado DEBE IR con guiones EEE-PPP-NNNNNNNNN.
     """
+    inv = ensure_invoice_additional_fields_saved(inv, company)
     env = obtener_env(company)  # 'test'|'prod'
     estab_nc, ptoEmi_nc, secuencial_nc, _ = resolve_serie_y_secuencial(company, inv, tipo="nc")
 
@@ -437,7 +443,7 @@ def _build_credit_note_payload(inv, company, motivo_global: str = "ANULACION") -
     key_base = f"{infoTributaria['ruc']}-{infoTributaria['estab']}-{infoTributaria['ptoEmi']}-{infoTributaria['secuencial']}-{infoNotaCredito['fechaEmision']}"
     payload["idempotency_key"] = hashlib.md5(key_base.encode("utf-8")).hexdigest()
 
-    return payload
+    return add_invoice_additional_fields_to_payload(payload, inv)
 
 
 # ======================================================

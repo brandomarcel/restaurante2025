@@ -6,6 +6,10 @@ from xml.sax.saxutils import escape
 from datetime import datetime
 import random
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from restaurante_app.facturacion_bmarc.einvoice.additional_fields import (
+    add_invoice_additional_fields_to_xml,
+    ensure_invoice_additional_fields_saved,
+)
 
 # =========================
 # Helpers compartidos
@@ -166,6 +170,7 @@ def generar_xml_NotaCredito(nc_name, ruc):
     company = frappe.get_doc("Company", {"ruc": ruc})
     if not company:
         frappe.throw(_("No se encontró la compañía con RUC {0}").format(ruc))
+    nc = ensure_invoice_additional_fields_saved(nc, company)
 
     # --- Raíz XML ---
     root = ET.Element("notaCredito", attrib={"id": "comprobante", "version": "1.0.0"})
@@ -292,7 +297,8 @@ def generar_xml_NotaCredito(nc_name, ruc):
     # ---------- infoAdicional ----------
     info_ad = ET.SubElement(root, "infoAdicional")
     campo = ET.SubElement(info_ad, "campoAdicional", nombre="correo")
-    campo.text = getattr(nc, "email", None) or "correo@ejemplo.com"
+    campo.text = getattr(nc, "customer_email", None) or getattr(nc, "email", None) or "correo@ejemplo.com"
+    add_invoice_additional_fields_to_xml(root, nc)
 
     xml_str = ET.tostring(root, encoding="unicode")
     return json.dumps({"xml": xml_str}, indent=2)

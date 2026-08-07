@@ -3,9 +3,13 @@
 
 import frappe
 from frappe.model.document import Document
+from restaurante_app.facturacion_bmarc.einvoice.additional_fields import sync_default_additional_fields
 
 
 class CreditNote(Document):
+    def validate(self):
+        sync_default_additional_fields(self)
+
     @frappe.whitelist()
     def get_context(self):
         company = frappe.get_doc("Company", self.company_id)

@@ -27,7 +27,11 @@
   "firma_section",
   "cert_common_name",
   "cert_not_before",
-  "cert_not_after"
+  "cert_not_after",
+  "tab_3_tab",
+  "provider_ruc_section",
+  "enable_provider_ruc",
+  "provider_ruc"
  ],
  "fields": [
   {
@@ -117,6 +121,25 @@
    "label": "Secuencial Nota Credito Pruebas"
   },
   {
+   "fieldname": "provider_ruc_section",
+   "fieldtype": "Section Break",
+   "label": "Proveedor del sistema"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_provider_ruc",
+   "fieldtype": "Check",
+   "label": "Incluir RUC del proveedor del sistema"
+  },
+  {
+   "depends_on": "eval:doc.enable_provider_ruc==1",
+   "fieldname": "provider_ruc",
+   "fieldtype": "Data",
+   "label": "RUC del proveedor del sistema",
+   "length": 13,
+   "mandatory_depends_on": "eval:doc.enable_provider_ruc==1"
+  },
+  {
    "fieldname": "tab_2_tab",
    "fieldtype": "Tab Break",
    "label": "Firma"
@@ -147,15 +170,20 @@
    "fieldname": "cert_not_after",
    "fieldtype": "Data",
    "label": "cert_not_after"
+  },
+  {
+   "fieldname": "tab_3_tab",
+   "fieldtype": "Tab Break",
+   "label": "Configuracion"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-21 20:34:31.419309",
+ "modified": "2026-08-06 12:06:54.036959",
  "modified_by": "Administrator",
  "module": "Restaurante BMARC",
  "name": "Company",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -181,6 +209,18 @@
    "role": "Gerente",
    "select": 1,
    "share": 1,
+   "write": 1
+  },
+  {
+   "permlevel": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  },
+  {
+   "permlevel": 1,
+   "read": 1,
+   "role": "Gerente",
    "write": 1
   },
   {

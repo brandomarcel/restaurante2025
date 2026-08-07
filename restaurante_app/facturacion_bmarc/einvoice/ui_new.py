@@ -5,6 +5,11 @@ from typing import Optional
 
 from restaurante_app.facturacion_bmarc.api.utils import persist_after_emit,_is_consumidor_final
 import frappe
+from restaurante_app.facturacion_bmarc.einvoice.additional_fields import (
+    add_invoice_additional_fields_to_payload,
+    ensure_invoice_additional_fields_saved,
+    set_invoice_additional_field,
+)
 from frappe import _
 
 # Cliente del micro (lo que ya construiste)
@@ -139,6 +144,7 @@ def _build_canonical_invoice_payload(inv) -> dict:
     Toma Company y Sales Invoice.
     """
     company = frappe.get_doc("Company", inv.company_id)
+    inv = ensure_invoice_additional_fields_saved(inv, company)
 
     # Estab/PtoEmi desde SI o Company
     estab = getattr(inv, "estab", None) or getattr(company, "establishmentcode", None) or "001"
@@ -227,7 +233,7 @@ def _build_canonical_invoice_payload(inv) -> dict:
             ]
         }
     }
-    return payload
+    return add_invoice_additional_fields_to_payload(payload, inv)
 
 
 def _environment_label(company) -> Optional[str]:
@@ -322,6 +328,36 @@ def _append_invoice_payments(inv, payments):
         row.forma_pago = _sri_forma_pago(p.get("formas_de_pago") or p.get("forma_pago"))
 
 
+def _append_invoice_additional_fields(inv, data):
+    rows = (
+        data.get("additional_fields")
+        or data.get("additionalFields")
+        or data.get("informacion_adicional")
+        or data.get("infoAdicional")
+        or []
+    )
+    if isinstance(rows, str):
+        try:
+            rows = json.loads(rows)
+        except Exception:
+            frappe.throw(_("El campo additional_fields debe ser JSON válido."))
+    if isinstance(rows, dict):
+        rows = rows.get("campos") or rows.get("fields") or []
+    if not rows:
+        return
+    if not isinstance(rows, list):
+        frappe.throw(_("El campo additional_fields debe ser una lista."))
+
+    for row in rows:
+        if not isinstance(row, dict):
+            frappe.throw(_("Cada campo adicional debe ser un objeto JSON válido."))
+        set_invoice_additional_field(
+            inv,
+            row.get("field_name") or row.get("name") or row.get("nombre"),
+            row.get("field_value") or row.get("value") or row.get("valor"),
+        )
+
+
 def _mark_sales_invoice_cancelled(invoice_name: str):
     frappe.db.set_value("Sales Invoice", invoice_name, "status", "ANULADA", update_modified=False)
     frappe.db.commit()
@@ -359,7 +395,10 @@ def create_and_emit_from_ui_v2():
       "estado": "Factura",
       "total": "20.00",
       "items": [{ "product":"PROD-0418", "qty":1, "rate":20, "tax_rate":0 }],
-      "payments": [{ "formas_de_pago":"PAY-0011" }]
+      "payments": [{ "formas_de_pago":"PAY-0011" }],
+      "additional_fields": [
+        { "field_name": "RUC Proveedor", "field_value": "1722195755001" }
+      ]
     }
     """
     data = frappe.request.get_json() or {}
@@ -407,6 +446,7 @@ def create_and_emit_from_ui_v2():
 
     _append_invoice_items(inv, data.get("items"))
     _append_invoice_payments(inv, data.get("payments"))
+    _append_invoice_additional_fields(inv, data)
 
     inv.insert(ignore_permissions=True)
 
@@ -475,7 +515,7 @@ def emit_existing_invoice_v2(invoice_name: str):
 
 # (Opcional) Nota de Crédito – cuando ya estés listo
 @frappe.whitelist(methods=["POST"], allow_guest=True)
-def emit_credit_note_v2(invoice_name: str, motivo: str):
+def emit_credit_note_v2(invoice_name: str, motivo: str, additional_fields=None):
     
     company_name = get_user_company()
     # frappe.throw(_(puede_facturar(company_name)))
@@ -525,6 +565,17 @@ def emit_credit_note_v2(invoice_name: str, motivo: str):
             "rate": float(it.get("rate") or 0),
             "tax_rate": float(it.get("tax_rate") or 0),
         })
+
+    for af in (data.get("additional_fields") or []):
+        set_invoice_additional_field(inv, af.get("field_name"), af.get("field_value"))
+
+    try:
+        payload_data = frappe.request.get_json() or {}
+    except Exception:
+        payload_data = {}
+    if additional_fields:
+        payload_data["additional_fields"] = additional_fields
+    _append_invoice_additional_fields(inv, payload_data)
 
     # (opcional) payments
     if data.get("payments"):

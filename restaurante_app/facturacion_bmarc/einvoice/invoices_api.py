@@ -359,6 +359,19 @@ def get_invoice_detail(name: str):
     # Cliente
     cust = _safe_customer_info(doc.get("customer"))
 
+    additional_fields = []
+    for row in doc.get("additional_fields") or []:
+        field_name = (row.get("field_name") or "").strip()
+        field_value = (row.get("field_value") or "").strip()
+        if not field_name or not field_value:
+            continue
+        additional_fields.append({
+            "name": field_name,
+            "value": field_value,
+            "field_name": field_name,
+            "field_value": field_value,
+        })
+
     data = {
         "name": doc.name,
         "type": "Factura",
@@ -372,6 +385,8 @@ def get_invoice_detail(name: str):
         "sri": sri,
         "usuario": doc.owner,
         "items": items,
+        "additionalFields": additional_fields,
+        "additional_fields": additional_fields,
     }
 
     return {"data": data}

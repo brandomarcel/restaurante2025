@@ -19,6 +19,8 @@
   "grand_total",
   "status",
   "items",
+  "additional_fields_section",
+  "additional_fields",
   "sec_sri",
   "environment",
   "estab",
@@ -101,6 +103,17 @@
    "fieldtype": "Table",
    "label": "items",
    "options": "Sales Invoice Item"
+  },
+  {
+   "fieldname": "additional_fields_section",
+   "fieldtype": "Section Break",
+   "label": "Campos adicionales"
+  },
+  {
+   "fieldname": "additional_fields",
+   "fieldtype": "Table",
+   "label": "Campos adicionales",
+   "options": "Sales Invoice Additional Field"
   },
   {
    "fieldname": "sec_sri",

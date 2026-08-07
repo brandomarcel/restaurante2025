@@ -6,6 +6,7 @@ from .utils import (
     to_decimal, money, map_codigo_porcentaje_v230, fmt_pct,
     obtener_tax_value, generar_clave_acceso, obtener_y_actualizar_secuencial, obtener_ambiente
 )
+from .additional_fields import add_invoice_additional_fields_to_xml, sync_default_additional_fields
 
 @frappe.whitelist()
 def generar_xml_factura_desde_invoice(invoice_name: str) -> str:
@@ -140,6 +141,9 @@ def generar_xml_factura_desde_invoice(invoice_name: str) -> str:
     info_adicional = ET.SubElement(factura, "infoAdicional")
     campo = ET.SubElement(info_adicional, "campoAdicional", nombre="correo")
     campo.text = getattr(inv, "customer_email", None) or getattr(inv, "email", None) or "correo@ejemplo.com"
+
+    sync_default_additional_fields(inv, company)
+    add_invoice_additional_fields_to_xml(factura, inv)
 
     xml_str = ET.tostring(factura, encoding="unicode")
     return json.dumps({"xml": xml_str, "clave_acceso": clave_acceso, "secuencial": secuencial}, indent=2)
