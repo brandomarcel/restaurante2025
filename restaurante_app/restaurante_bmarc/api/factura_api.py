@@ -147,12 +147,9 @@ def _get_company_context(company: str | None = None) -> dict:
             "Usa el certificado correcto para esta empresa."
         ).format(cert_ruc, ruc))
     
-    # frappe.throw(_make_absolute_file_url(urlfirma))
-
     return {
         "company": company,
-        # "urlfirma": _make_absolute_file_url(urlfirma),
-        "urlfirma": 'http://207.180.197.160:1012/files/1722195755001.p12',
+        "urlfirma": _make_absolute_file_url(urlfirma),
         "urlfirma_raw": urlfirma,
         "clave": clave,
         "ambiente": ambiente,
