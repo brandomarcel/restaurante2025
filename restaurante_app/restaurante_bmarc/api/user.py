@@ -1,6 +1,33 @@
 import frappe
 from frappe import _
 
+BUSINESS_MODE_RESTAURANTE = "RESTAURANTE"
+BUSINESS_MODE_FACTURADOR = "FACTURADOR"
+BUSINESS_MODE_DEFAULT = BUSINESS_MODE_RESTAURANTE
+
+
+def normalize_business_mode(value=None):
+    mode = (value or BUSINESS_MODE_DEFAULT).strip().upper()
+    if mode not in {BUSINESS_MODE_RESTAURANTE, BUSINESS_MODE_FACTURADOR}:
+        return BUSINESS_MODE_DEFAULT
+    return mode
+
+
+def get_business_mode_features(mode=None):
+    mode = normalize_business_mode(mode)
+    is_restaurant = mode == BUSINESS_MODE_RESTAURANTE
+    return {
+        "orders": is_restaurant,
+        "tables": is_restaurant,
+        "kitchen": is_restaurant,
+        "cash_register": is_restaurant,
+        "direct_invoice": True,
+        "credit_note": True,
+        "customers": True,
+        "products": True,
+    }
+
+
 @frappe.whitelist()
 def get_user_info():
     user = frappe.get_doc("User", frappe.session.user)
@@ -15,7 +42,10 @@ def get_user_info():
 def get_empresa():
     company_name = get_user_company()
     company = frappe.get_doc("Company", company_name)
-    return company.as_dict()
+    data = company.as_dict()
+    data["business_mode"] = normalize_business_mode(data.get("business_mode"))
+    data["features"] = get_business_mode_features(data["business_mode"])
+    return data
 
 
 @frappe.whitelist()

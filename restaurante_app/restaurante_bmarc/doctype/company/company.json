@@ -29,6 +29,8 @@
   "cert_not_before",
   "cert_not_after",
   "tab_3_tab",
+  "business_mode_section",
+  "business_mode",
   "provider_ruc_section",
   "enable_provider_ruc",
   "provider_ruc"
@@ -175,6 +177,18 @@
    "fieldname": "tab_3_tab",
    "fieldtype": "Tab Break",
    "label": "Configuracion"
+  },
+  {
+   "fieldname": "business_mode_section",
+   "fieldtype": "Section Break",
+   "label": "Modo de operacion"
+  },
+  {
+   "default": "RESTAURANTE",
+   "fieldname": "business_mode",
+   "fieldtype": "Select",
+   "label": "Modo de operacion",
+   "options": "RESTAURANTE\nFACTURADOR"
   }
  ],
  "index_web_pages_for_search": 1,
