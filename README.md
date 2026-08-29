@@ -4,4 +4,6 @@ Sistema de restaurante
 
 #### License
 
-mit
+ bench --site restaurante_bmarc migrate
+ sudo supervisorctl restart all
+ pm2 start ecosystem.config.js --env production

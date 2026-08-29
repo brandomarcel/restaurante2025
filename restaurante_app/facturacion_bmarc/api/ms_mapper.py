@@ -191,7 +191,7 @@ def build_invoice_payload_from_sales_invoice(invoice_name: str) -> Dict[str, Any
         for p in inv.payments:
             pagos.append({
                 "formaPago": getattr(p, "forma_pago", None) or "01",
-                "total": total  # o p.monto si manejas multi-pagos
+                "total": float(getattr(p, "monto", None) or getattr(p, "amount", None) or total)
             })
     else:
         pagos.append({"formaPago": "01", "total": total})

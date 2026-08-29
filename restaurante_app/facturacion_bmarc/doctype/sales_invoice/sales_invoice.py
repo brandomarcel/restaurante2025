@@ -38,6 +38,50 @@ def _fmt_errors(resp: dict) -> str:
     return "; ".join(items) or "Error desconocido"
 
 
+def _sri_forma_pago(code) -> str:
+    if code is None:
+        return "01"
+    code = str(code).strip()
+    if not code:
+        return "01"
+    if code.isdigit() and len(code) == 2:
+        return code
+    try:
+        return frappe.db.get_value("payments", code, "codigo") or "01"
+    except Exception:
+        return "01"
+
+
+def _payment_method_link(code):
+    if not code:
+        return None
+    code = str(code).strip()
+    return code if frappe.db.exists("payments", code) else None
+
+
+def _append_payments_from_payload(inv, data, default_amount):
+    payments = data.get("payments") or []
+    if data.get("payment"):
+        payments.append(data.get("payment"))
+
+    for p in payments:
+        raw_payment = (
+            p.get("formas_de_pago")
+            or p.get("payment_method")
+            or p.get("payment_mode")
+            or p.get("forma_pago")
+            or p.get("code")
+        )
+        row = {
+            "forma_pago": _sri_forma_pago(raw_payment),
+            "monto": float(p.get("monto") or p.get("amount") or p.get("total") or default_amount or 0),
+        }
+        payment_method = _payment_method_link(raw_payment)
+        if payment_method:
+            row["payment_method"] = payment_method
+        inv.append("payments", row)
+
+
 
 # ---------------- DocType ----------------
 
@@ -83,7 +127,7 @@ def create_from_ui():
       "customer": "CLI-0001",
       "posting_date": "YYYY-MM-DD",
       "items": [{ "item_code","item_name","qty","rate","tax_rate" }],
-      "payment": { "code": "01", "name": "EFECTIVO", "amount": 123.45 }, # opcional (no se guarda aquí)
+      "payment": { "code": "01", "name": "EFECTIVO", "amount": 123.45 }, # opcional
       "auto_queue": true|false
     }
     """
@@ -138,6 +182,8 @@ def create_from_ui():
             row.get("field_name") or row.get("nombre"),
             row.get("field_value") or row.get("valor"),
         )
+
+    _append_payments_from_payload(inv, data, grand_total)
 
     inv.insert(ignore_permissions=True)
 

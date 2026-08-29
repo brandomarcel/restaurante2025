@@ -1,4 +1,4 @@
-frappe.query_reports["Productos Más Vendidos"] = {
+frappe.query_reports["Comprobantes Electronicos"] = {
     filters: [
         {
             fieldname: "company",
@@ -22,35 +22,41 @@ frappe.query_reports["Productos Más Vendidos"] = {
             reqd: 1,
         },
         {
-            fieldname: "estado",
-            label: "Documento",
+            fieldname: "tipo",
+            label: "Tipo",
             fieldtype: "Select",
-            options: "\nNota Venta\nFactura",
+            options: "\nFactura\nNota de Credito",
         },
         {
-            fieldname: "type_orden",
-            label: "Tipo Orden",
+            fieldname: "customer",
+            label: "Cliente",
+            fieldtype: "Link",
+            options: "Cliente",
+        },
+        {
+            fieldname: "status",
+            label: "Estado",
             fieldtype: "Select",
-            options: "\nServirse\nLlevar\nDomicilio",
+            options: "\nBORRADOR\nEN COLA\nFIRMADO\nENVIADO\nAUTORIZADO\nRECHAZADO\nERROR\nANULADA\nDraft\nQueued\nSigned\nSubmitted\nAuthorized\nRejected\nError",
         },
         {
-            fieldname: "product",
-            label: "Producto",
-            fieldtype: "Link",
-            options: "Producto",
+            fieldname: "einvoice_status",
+            label: "Estado SRI",
+            fieldtype: "Select",
+            options: "\nBORRADOR\nEN COLA\nFIRMADO\nENVIADO\nAUTORIZADO\nRECHAZADO\nERROR\nDraft\nQueued\nSigned\nSubmitted\nAuthorized\nRejected\nError",
         },
         {
-            fieldname: "categoria",
-            label: "Categoria",
-            fieldtype: "Link",
-            options: "categorias",
+            fieldname: "plan_voucher_consumed",
+            label: "Consumio Plan",
+            fieldtype: "Select",
+            options: "\n1\n0",
         },
         {
             fieldname: "limit",
             label: "Limite",
             fieldtype: "Select",
-            options: "10\n20\n50\n100\n200\n500",
-            default: "50",
+            options: "50\n100\n200\n500\n1000\n2000",
+            default: "100",
             reqd: 1,
         },
     ],

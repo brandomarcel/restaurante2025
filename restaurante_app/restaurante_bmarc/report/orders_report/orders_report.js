@@ -1,60 +1,81 @@
-// Copyright (c) 2025, none and contributors
-// For license information, please see license.txt
-
 frappe.query_reports["Orders Report"] = {
     filters: [
         {
             fieldname: "company",
-            label: "Compañía",
+            label: "Compania",
             fieldtype: "Select",
-            options: [], // se llenará en onload
+            options: [],
             default: frappe.defaults.get_default("company") || "",
-            reqd: 0
         },
         {
             fieldname: "from_date",
-            label: "Desde Fecha",
+            label: "Desde",
             fieldtype: "Date",
-            default:frappe.datetime.get_today(),
-            reqd: 1
+            default: frappe.datetime.get_today(),
+            reqd: 1,
         },
         {
             fieldname: "to_date",
-            label: "Hasta Fecha",
+            label: "Hasta",
             fieldtype: "Date",
             default: frappe.datetime.get_today(),
-            reqd: 1
+            reqd: 1,
+        },
+        {
+            fieldname: "customer",
+            label: "Cliente",
+            fieldtype: "Link",
+            options: "Cliente",
         },
         {
             fieldname: "estado",
-            label: "Estado",
+            label: "Documento",
             fieldtype: "Select",
             options: "\nNota Venta\nFactura",
-            default: ""
+        },
+        {
+            fieldname: "status",
+            label: "Estado Orden",
+            fieldtype: "Select",
+            options: "\nIngresada\nPreparacion\nPreparación\nCerrada",
+        },
+        {
+            fieldname: "type_orden",
+            label: "Tipo Orden",
+            fieldtype: "Select",
+            options: "\nServirse\nLlevar\nDomicilio",
+        },
+        {
+            fieldname: "sri_status",
+            label: "Estado SRI",
+            fieldtype: "Select",
+            options: "\nBORRADOR\nEN COLA\nFIRMADO\nENVIADO\nAUTORIZADO\nRECHAZADO\nERROR\nDraft\nQueued\nSigned\nSubmitted\nAuthorized\nRejected\nError",
+        },
+        {
+            fieldname: "payment_method",
+            label: "Forma de Pago",
+            fieldtype: "Link",
+            options: "payments",
         },
         {
             fieldname: "limit",
-            label: "Número de datos",
+            label: "Limite",
             fieldtype: "Select",
-            options: "10\n50\n100\n200\n500",
+            options: "10\n50\n100\n200\n500\n1000",
             default: "50",
-            reqd: 1
-        }
+            reqd: 1,
+        },
     ],
-
     onload: function(report) {
         const company_filter = report.get_filter("company");
-        const has_default_company = Boolean(frappe.defaults.get_default("company"));
-
         frappe.call({
             method: "restaurante_app.restaurante_bmarc.api.utils.get_company_list",
             callback: function(r) {
                 if (!Array.isArray(r.message)) return;
-
                 company_filter.df.options = [""].concat(r.message);
-                company_filter.df.reqd = !has_default_company;
+                company_filter.df.reqd = !frappe.defaults.get_default("company");
                 company_filter.refresh();
-            }
+            },
         });
-    }
+    },
 };

@@ -17,6 +17,27 @@ def _fmt_ms_errors(resp: dict) -> str:
         return str(msg)
     return str(resp)
 
+
+def _sri_forma_pago(code: str) -> str:
+    if code is None:
+        return "01"
+    code = str(code).strip()
+    if not code:
+        return "01"
+    if code.isdigit() and len(code) == 2:
+        return code
+    try:
+        return frappe.db.get_value("payments", code, "codigo") or "01"
+    except Exception:
+        return "01"
+
+
+def _payment_method_link(code: str):
+    if not code:
+        return None
+    code = str(code).strip()
+    return code if frappe.db.exists("payments", code) else None
+
 @frappe.whitelist()
 def queue_einvoice_ms(invoice_name: str):
     """
@@ -88,9 +109,16 @@ def emitir_factura_from_ui_ms():
 
     # pagos (si tienes child table)
     for p in (data.get("payments") or []):
+        raw_payment = p.get("formas_de_pago") or p.get("payment_mode") or p.get("forma_pago") or "01"
+        payment_row = {
+            "forma_pago": _sri_forma_pago(raw_payment),
+            "monto": float(p.get("monto") or p.get("amount") or p.get("total") or data.get("total") or 0),
+        }
+        payment_method = _payment_method_link(raw_payment)
+        if payment_method:
+            payment_row["payment_method"] = payment_method
         inv.append("payments", {
-            "forma_pago": p.get("formas_de_pago") or p.get("payment_mode") or "01",
-            "monto": float(data.get("total") or 0),
+            **payment_row,
         })
 
     inv.insert(ignore_permissions=True)

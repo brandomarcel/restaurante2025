@@ -109,10 +109,19 @@ def _sri_forma_pago(code: Optional[str]) -> str:
     if code.isdigit() and len(code) == 2:
         return code
     try:
-        sri_code = frappe.db.get_value("formas de pago", code, "sri_code")
+        sri_code = frappe.db.get_value("payments", code, "codigo")
+        if not sri_code:
+            sri_code = frappe.db.get_value("formas de pago", code, "sri_code")
         return sri_code or "01"
     except Exception:
         return "01"
+
+
+def _payment_method_link(code: Optional[str]) -> Optional[str]:
+    if not code:
+        return None
+    code = str(code).strip()
+    return code if frappe.db.exists("payments", code) else None
 
 
 def _resolve_tax_rate(item_row) -> float:
@@ -128,9 +137,10 @@ def _append_sales_invoice_payments_from_order(inv, order_doc):
 
     order_total = flt(getattr(order_doc, "total", 0))
     for p in (getattr(order_doc, "payments", None) or []):
-        forma_pago = _sri_forma_pago(
+        raw_payment = (
             getattr(p, "formas_de_pago", None) or getattr(p, "forma_pago", None) or getattr(p, "code", None)
         )
+        forma_pago = _sri_forma_pago(raw_payment)
         raw_amount = getattr(p, "monto", None)
         if raw_amount is None:
             raw_amount = getattr(p, "amount", None)
@@ -141,6 +151,10 @@ def _append_sales_invoice_payments_from_order(inv, order_doc):
             continue
         row = inv.append("payments", {})
         child_dt = getattr(row, "doctype", None)
+        payment_method = _payment_method_link(raw_payment)
+        if payment_method and child_dt and meta_has_field(child_dt, "payment_method"):
+            row.payment_method = payment_method
+
         if child_dt and meta_has_field(child_dt, "forma_pago"):
             row.forma_pago = forma_pago
         elif child_dt and meta_has_field(child_dt, "code"):
@@ -1275,9 +1289,10 @@ def _append_sales_invoice_payments_from_split(inv, split_doc):
 
     split_total = flt(getattr(split_doc, "total", 0))
     for p in (getattr(split_doc, "payments", None) or []):
-        forma_pago = _sri_forma_pago(
+        raw_payment = (
             getattr(p, "formas_de_pago", None) or getattr(p, "forma_pago", None) or getattr(p, "code", None)
         )
+        forma_pago = _sri_forma_pago(raw_payment)
         monto = flt(getattr(p, "monto", None) if getattr(p, "monto", None) is not None else split_total)
         if monto <= 0 and split_total > 0:
             monto = split_total
@@ -1286,6 +1301,10 @@ def _append_sales_invoice_payments_from_split(inv, split_doc):
 
         row = inv.append("payments", {})
         child_dt = getattr(row, "doctype", None)
+        payment_method = _payment_method_link(raw_payment)
+        if payment_method and child_dt and meta_has_field(child_dt, "payment_method"):
+            row.payment_method = payment_method
+
         if child_dt and meta_has_field(child_dt, "forma_pago"):
             row.forma_pago = forma_pago
         elif child_dt and meta_has_field(child_dt, "code"):

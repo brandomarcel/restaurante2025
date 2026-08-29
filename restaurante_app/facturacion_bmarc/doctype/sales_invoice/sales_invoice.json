@@ -17,6 +17,8 @@
   "total_without_tax",
   "tax_total",
   "grand_total",
+  "payments_section",
+  "payments",
   "status",
   "items",
   "additional_fields_section",
@@ -94,6 +96,17 @@
    "fieldname": "grand_total",
    "fieldtype": "Currency",
    "label": "Total"
+  },
+  {
+   "fieldname": "payments_section",
+   "fieldtype": "Section Break",
+   "label": "Pagos"
+  },
+  {
+   "fieldname": "payments",
+   "fieldtype": "Table",
+   "label": "Formas de pago",
+   "options": "Sales Invoice Payment"
   },
   {
    "fieldname": "status",

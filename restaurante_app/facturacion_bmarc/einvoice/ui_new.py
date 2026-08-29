@@ -50,7 +50,7 @@ def _env(company) -> str:
     return "prod" if (getattr(company, "ambiente", "") == "PRODUCCION") else "test"
 
 def _sri_forma_pago(code: str) -> str:
-    """Intenta resolver el código SRI desde un Doctype 'formas de pago'.
+    """Intenta resolver el codigo SRI desde el maestro de formas de pago.
        Si no encuentra, usa '01' (efectivo)."""
     if code is None:
         return "01"
@@ -61,10 +61,19 @@ def _sri_forma_pago(code: str) -> str:
     if code.isdigit() and len(code) == 2:
         return code
     try:
-        sri_code = frappe.db.get_value("formas de pago", code, "sri_code")
+        sri_code = frappe.db.get_value("payments", code, "codigo")
+        if not sri_code:
+            sri_code = frappe.db.get_value("formas de pago", code, "sri_code")
         return sri_code or "01"
     except Exception:
         return "01"
+
+
+def _payment_method_link(code: str) -> Optional[str]:
+    if not code:
+        return None
+    code = str(code).strip()
+    return code if frappe.db.exists("payments", code) else None
 
 def _eight_digit_code() -> str:
     return "".join(random.choice("0123456789") for _ in range(8))
@@ -316,8 +325,10 @@ def _append_invoice_items(inv, items):
         })
 
 
-def _append_invoice_payments(inv, payments):
+def _append_invoice_payments(inv, payments, default_amount=None):
     if not payments:
+        return
+    if not any(df.fieldname == "payments" for df in frappe.get_meta(inv.doctype).fields):
         return
     if not isinstance(payments, list):
         frappe.throw(_("El campo payments debe ser una lista."))
@@ -325,8 +336,21 @@ def _append_invoice_payments(inv, payments):
     for p in payments:
         if not isinstance(p, dict):
             frappe.throw(_("Cada pago debe ser un objeto JSON válido."))
+        raw_payment = (
+            p.get("formas_de_pago")
+            or p.get("forma_pago")
+            or p.get("payment_method")
+            or p.get("method")
+            or p.get("code")
+        )
         row = inv.append("payments", {})
-        row.forma_pago = _sri_forma_pago(p.get("formas_de_pago") or p.get("forma_pago"))
+        payment_method = _payment_method_link(raw_payment)
+        if payment_method:
+            row.payment_method = payment_method
+        row.forma_pago = _sri_forma_pago(raw_payment)
+        amount = p.get("monto") or p.get("amount") or p.get("total") or default_amount
+        if amount is not None:
+            row.monto = float(_to_decimal(amount))
 
 
 def _append_invoice_additional_fields(inv, data):
@@ -447,7 +471,7 @@ def create_and_emit_from_ui_v2():
     })
 
     _append_invoice_items(inv, data.get("items"))
-    _append_invoice_payments(inv, data.get("payments"))
+    _append_invoice_payments(inv, data.get("payments"), total)
     _append_invoice_additional_fields(inv, data)
 
     inv.insert(ignore_permissions=True)
@@ -580,11 +604,7 @@ def emit_credit_note_v2(invoice_name: str, motivo: str, additional_fields=None):
         payload_data["additional_fields"] = additional_fields
     _append_invoice_additional_fields(inv, payload_data)
 
-    # (opcional) payments
-    if data.get("payments"):
-        for p in data["payments"]:
-            row = inv.append("payments", {})
-            row.forma_pago = _sri_forma_pago(p.get("formas_de_pago") or p.get("forma_pago"))
+    _append_invoice_payments(inv, data.get("payments"), data.get("total"))
 
     inv.insert(ignore_permissions=True)    
     api_result = emitir_nota_credito_por_invoice(inv.name, motivo)

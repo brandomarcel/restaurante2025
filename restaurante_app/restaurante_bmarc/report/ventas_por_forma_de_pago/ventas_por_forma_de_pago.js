@@ -1,4 +1,4 @@
-frappe.query_reports["Productos Más Vendidos"] = {
+frappe.query_reports["Ventas por Forma de Pago"] = {
     filters: [
         {
             fieldname: "company",
@@ -11,7 +11,7 @@ frappe.query_reports["Productos Más Vendidos"] = {
             fieldname: "from_date",
             label: "Desde",
             fieldtype: "Date",
-            default: frappe.datetime.add_days(frappe.datetime.get_today(), -30),
+            default: frappe.datetime.get_today(),
             reqd: 1,
         },
         {
@@ -22,35 +22,28 @@ frappe.query_reports["Productos Más Vendidos"] = {
             reqd: 1,
         },
         {
-            fieldname: "estado",
-            label: "Documento",
-            fieldtype: "Select",
-            options: "\nNota Venta\nFactura",
-        },
-        {
-            fieldname: "type_orden",
-            label: "Tipo Orden",
-            fieldtype: "Select",
-            options: "\nServirse\nLlevar\nDomicilio",
-        },
-        {
-            fieldname: "product",
-            label: "Producto",
+            fieldname: "payment_method",
+            label: "Forma de Pago",
             fieldtype: "Link",
-            options: "Producto",
+            options: "payments",
         },
         {
-            fieldname: "categoria",
-            label: "Categoria",
-            fieldtype: "Link",
-            options: "categorias",
+            fieldname: "forma_pago",
+            label: "Codigo SRI",
+            fieldtype: "Data",
+        },
+        {
+            fieldname: "einvoice_status",
+            label: "Estado SRI",
+            fieldtype: "Select",
+            options: "\nBORRADOR\nEN COLA\nFIRMADO\nENVIADO\nAUTORIZADO\nRECHAZADO\nERROR\nDraft\nQueued\nSigned\nSubmitted\nAuthorized\nRejected\nError",
         },
         {
             fieldname: "limit",
             label: "Limite",
             fieldtype: "Select",
-            options: "10\n20\n50\n100\n200\n500",
-            default: "50",
+            options: "20\n50\n100\n200\n500\n1000",
+            default: "100",
             reqd: 1,
         },
     ],
