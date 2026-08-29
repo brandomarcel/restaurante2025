@@ -1,0 +1,215 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:code",
+ "creation": "2026-08-23 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "plan_section",
+  "plan_name",
+  "code",
+  "enabled",
+  "price",
+  "period_section",
+  "billing_period_type",
+  "billing_period_count",
+  "unlimited_authorized_vouchers",
+  "max_authorized_vouchers",
+  "features_section",
+  "allow_restaurant_mode",
+  "allow_invoice_mode",
+  "allow_tables",
+  "allow_orders",
+  "allow_kitchen",
+  "allow_cash_register",
+  "allow_direct_invoice",
+  "allow_credit_note",
+  "allow_customers",
+  "allow_products",
+  "allow_additional_fields"
+ ],
+ "fields": [
+  {
+   "fieldname": "plan_section",
+   "fieldtype": "Section Break",
+   "label": "Plan"
+  },
+  {
+   "fieldname": "plan_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nombre del plan",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Codigo",
+   "reqd": 1,
+   "search_index": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Activo"
+  },
+  {
+   "default": "0",
+   "fieldname": "price",
+   "fieldtype": "Currency",
+   "label": "Precio"
+  },
+  {
+   "fieldname": "period_section",
+   "fieldtype": "Section Break",
+   "label": "Periodo y cupos"
+  },
+  {
+   "default": "MES",
+   "fieldname": "billing_period_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Tipo de periodo",
+   "options": "DIA\nMES\nANIO"
+  },
+  {
+   "default": "1",
+   "fieldname": "billing_period_count",
+   "fieldtype": "Int",
+   "label": "Cantidad de periodos"
+  },
+  {
+   "default": "0",
+   "fieldname": "unlimited_authorized_vouchers",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Comprobantes autorizados ilimitados"
+  },
+  {
+   "default": "100",
+   "depends_on": "eval:doc.unlimited_authorized_vouchers!=1",
+   "fieldname": "max_authorized_vouchers",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Comprobantes autorizados incluidos",
+   "mandatory_depends_on": "eval:doc.unlimited_authorized_vouchers!=1"
+  },
+  {
+   "fieldname": "features_section",
+   "fieldtype": "Section Break",
+   "label": "Permisos del plan"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_restaurant_mode",
+   "fieldtype": "Check",
+   "label": "Permite modo restaurante"
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_invoice_mode",
+   "fieldtype": "Check",
+   "label": "Permite modo facturador"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_tables",
+   "fieldtype": "Check",
+   "label": "Permite mesas"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_orders",
+   "fieldtype": "Check",
+   "label": "Permite ordenes"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_kitchen",
+   "fieldtype": "Check",
+   "label": "Permite cocina"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_cash_register",
+   "fieldtype": "Check",
+   "label": "Permite caja"
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_direct_invoice",
+   "fieldtype": "Check",
+   "label": "Permite factura directa"
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_credit_note",
+   "fieldtype": "Check",
+   "label": "Permite nota de credito"
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_customers",
+   "fieldtype": "Check",
+   "label": "Permite clientes"
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_products",
+   "fieldtype": "Check",
+   "label": "Permite productos"
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_additional_fields",
+   "fieldtype": "Check",
+   "label": "Permite informacion adicional"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-23 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Restaurante BMARC",
+ "name": "Plan",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Gerente",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "plan_name"
+}

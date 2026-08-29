@@ -18,6 +18,7 @@ from restaurante_app.facturacion_bmarc.api.utils import (
     to_decimal, money, obtener_tax_value, map_codigo_porcentaje,
     obtener_env, resolve_serie_y_secuencial, _parse_fecha_autorizacion
 )
+from restaurante_app.restaurante_bmarc.api.plans import validate_company_can_authorize_voucher
 
 # ======================================================
 # Config & HTTP helpers
@@ -457,6 +458,7 @@ def emitir_factura_por_invoice(invoice_name: str) -> Dict[str, Any]:
     """
     inv = frappe.get_doc("Sales Invoice", invoice_name)
     company = _get_company(inv.company_id)
+    validate_company_can_authorize_voucher(company, "direct_invoice")
     payload = _build_invoice_payload(inv, company)
     return _post_api("/api/v1/invoices/emit", payload, timeout=120)
 
@@ -482,6 +484,7 @@ def emitir_nota_credito_por_invoice(invoice_name: str, motivo: Optional[str] = N
     """
     inv = frappe.get_doc("Credit Note", invoice_name)
     company = _get_company(inv.company_id)
+    validate_company_can_authorize_voucher(company, "credit_note")
     payload = _build_credit_note_payload(inv, company, motivo_global=(motivo or "Devolución / Descuento"))
     return _post_api("/api/v1/credit-notes/emit", payload, timeout=120)
 

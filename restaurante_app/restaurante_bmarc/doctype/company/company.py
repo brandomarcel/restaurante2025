@@ -16,5 +16,14 @@ class Company(Document):
 		if self.business_mode not in BUSINESS_MODES:
 			frappe.throw(_("Modo de operacion invalido: {0}").format(self.business_mode))
 
+		if self.get("current_plan_subscription"):
+			subscription_company = frappe.db.get_value(
+				"Company Plan Subscription",
+				self.current_plan_subscription,
+				"company",
+			)
+			if subscription_company and subscription_company != self.name:
+				frappe.throw(_("La suscripcion actual pertenece a otra compania."))
+
 		if self.get("enable_provider_ruc"):
 			self.provider_ruc = validate_provider_ruc(self.get("provider_ruc"))

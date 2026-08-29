@@ -1,5 +1,9 @@
 import frappe
 from frappe import _
+from restaurante_app.restaurante_bmarc.api.plans import (
+    apply_plan_features,
+    get_company_plan_context,
+)
 
 BUSINESS_MODE_RESTAURANTE = "RESTAURANTE"
 BUSINESS_MODE_FACTURADOR = "FACTURADOR"
@@ -25,6 +29,7 @@ def get_business_mode_features(mode=None):
         "credit_note": True,
         "customers": True,
         "products": True,
+        "additional_fields": True,
     }
 
 
@@ -44,7 +49,17 @@ def get_empresa():
     company = frappe.get_doc("Company", company_name)
     data = company.as_dict()
     data["business_mode"] = normalize_business_mode(data.get("business_mode"))
-    data["features"] = get_business_mode_features(data["business_mode"])
+    base_features = get_business_mode_features(data["business_mode"])
+    plan_data, plan_features = get_company_plan_context(company)
+    if plan_data and plan_data["active"]:
+        mode_allowed = (
+            (data["business_mode"] == BUSINESS_MODE_RESTAURANTE and plan_data["allow_restaurant_mode"])
+            or (data["business_mode"] == BUSINESS_MODE_FACTURADOR and plan_data["allow_invoice_mode"])
+        )
+        if not mode_allowed:
+            plan_features = {feature_key: False for feature_key in base_features}
+    data["plan"] = plan_data
+    data["features"] = apply_plan_features(base_features, plan_features)
     return data
 
 

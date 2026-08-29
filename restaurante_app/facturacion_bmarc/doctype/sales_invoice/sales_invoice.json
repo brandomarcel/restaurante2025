@@ -31,6 +31,9 @@
   "authorization_code",
   "authorization_datetime",
   "sri_message",
+  "plan_control_section",
+  "plan_subscription",
+  "plan_voucher_consumed",
   "attempts",
   "last_attempt_at",
   "last_error_code",
@@ -196,6 +199,25 @@
    "fieldname": "sri_message",
    "fieldtype": "Long Text",
    "label": "Mensaje SRI"
+  },
+  {
+   "fieldname": "plan_control_section",
+   "fieldtype": "Section Break",
+   "label": "Control de plan"
+  },
+  {
+   "fieldname": "plan_subscription",
+   "fieldtype": "Link",
+   "label": "Suscripcion consumida",
+   "options": "Company Plan Subscription",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "plan_voucher_consumed",
+   "fieldtype": "Check",
+   "label": "Comprobante consumido del plan",
+   "read_only": 1
   },
   {
    "fieldname": "company_id",

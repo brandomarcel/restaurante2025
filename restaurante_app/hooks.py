@@ -148,23 +148,11 @@ app_license = "mit"
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"restaurante_app.tasks.all"
-# 	],
-# 	"daily": [
-# 		"restaurante_app.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"restaurante_app.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"restaurante_app.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"restaurante_app.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"daily": [
+		"restaurante_app.restaurante_bmarc.api.plans.process_plan_renewals"
+	],
+}
 
 # Testing
 # -------

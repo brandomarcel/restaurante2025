@@ -13,6 +13,7 @@ from restaurante_app.facturacion_bmarc.api.open_factura_client import (
 )
 from restaurante_app.facturacion_bmarc.einvoice.edocs import sri_estado_and_update_data
 from restaurante_app.facturacion_bmarc.einvoice.utils import puede_facturar
+from restaurante_app.restaurante_bmarc.api.plans import validate_company_can_authorize_voucher
 from restaurante_app.inventarios_bmarc.api.stock import (
     build_stock_delta,
     create_inventory_movement_entry,
@@ -900,6 +901,8 @@ def create_order_v2():
     issue_invoice = (str(data.get("estado") or "").strip() == "Factura")
     if issue_invoice and not puede_facturar(company_name):
         frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
+    if issue_invoice:
+        validate_company_can_authorize_voucher(company_name, "direct_invoice")
 
     doc = frappe.get_doc({
         "doctype": "orders",
@@ -959,6 +962,7 @@ def _emit_invoice_for_order(order_name: str):
         frappe.throw(_("No se pudo determinar la compania para emitir la factura"))
     if not puede_facturar(company_name):
         frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
+    validate_company_can_authorize_voucher(company_name, "direct_invoice")
 
     company = frappe.get_doc("Company", company_name)
     customer_info = _safe_customer_info(order_doc.customer)
@@ -1518,6 +1522,7 @@ def create_and_emit_from_split(split_name: str):
         frappe.throw(_("No se pudo determinar la compania para emitir la factura."))
     if not puede_facturar(company_name):
         frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
+    validate_company_can_authorize_voucher(company_name, "direct_invoice")
 
     customer_name = split_doc.customer or order_doc.customer
     customer_info = _safe_customer_info(customer_name)

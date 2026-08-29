@@ -16,6 +16,10 @@ from restaurante_app.facturacion_bmarc.einvoice.additional_fields import (
     set_invoice_additional_field,
     sync_default_additional_fields,
 )
+from restaurante_app.restaurante_bmarc.api.plans import (
+    consume_authorized_voucher_for_document,
+    validate_company_can_authorize_voucher,
+)
 # ---------------- Helpers locales ----------------
 
 def _fmt_errors(resp: dict) -> str:
@@ -168,6 +172,7 @@ def queue_einvoice(invoice_name: str, raise_on_error: int = 1, clear_on_sri_45: 
     """
     inv = frappe.get_doc("Sales Invoice", invoice_name)
     inv = ensure_invoice_additional_fields_saved(inv)
+    validate_company_can_authorize_voucher(inv.company_id, "direct_invoice")
 
     # 1) Generar XML desde la factura (usa tu builder)
     try:
@@ -244,6 +249,8 @@ def queue_einvoice(invoice_name: str, raise_on_error: int = 1, clear_on_sri_45: 
 
     if estado == "AUTORIZADO":
         persist_status(inv, "AUTORIZADO", None)
+        consume_authorized_voucher_for_document(inv)
+        frappe.db.commit()
         fecha_aut = consulta.get("fecha_autorizacion")
         if fecha_aut:
             try:

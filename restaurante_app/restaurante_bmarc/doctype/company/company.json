@@ -31,6 +31,8 @@
   "tab_3_tab",
   "business_mode_section",
   "business_mode",
+  "plan_section",
+  "current_plan_subscription",
   "provider_ruc_section",
   "enable_provider_ruc",
   "provider_ruc"
@@ -189,6 +191,17 @@
    "fieldtype": "Select",
    "label": "Modo de operacion",
    "options": "RESTAURANTE\nFACTURADOR"
+  },
+  {
+   "fieldname": "plan_section",
+   "fieldtype": "Section Break",
+   "label": "Plan"
+  },
+  {
+   "fieldname": "current_plan_subscription",
+   "fieldtype": "Link",
+   "label": "Suscripcion actual",
+   "options": "Company Plan Subscription"
   }
  ],
  "index_web_pages_for_search": 1,

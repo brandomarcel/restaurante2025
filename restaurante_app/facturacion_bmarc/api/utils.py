@@ -7,7 +7,8 @@ import pytz
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import random
 from typing import Optional, Tuple, Dict
-from restaurante_app.restaurante_bmarc.api.sendFactura import enviar_factura_sales_invoice,enviar_factura_nota_credito 
+from restaurante_app.restaurante_bmarc.api.sendFactura import enviar_factura_sales_invoice,enviar_factura_nota_credito
+from restaurante_app.restaurante_bmarc.api.plans import consume_authorized_voucher_for_document
 import base64
 from frappe.utils.file_manager import save_file
 from frappe.utils import flt, cint, get_datetime, getdate
@@ -348,6 +349,12 @@ def persist_after_emit(inv, api_result: dict, type_document: str):
 
     # Enviar XML y correo si fue autorizada
     if status == "AUTHORIZED":
+        try:
+            consume_authorized_voucher_for_document(inv)
+            frappe.db.commit()
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), f"Consumo de plan falló para {inv.name}")
+
         try:
             save_invoice_xmls(inv.name, api_result.get("xml_authorized_base64"), access_key, type_document)
 

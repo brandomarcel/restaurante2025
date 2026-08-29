@@ -3,6 +3,10 @@ import frappe, json
 from frappe import _
 from .ms_mapper import build_invoice_payload_from_sales_invoice
 from .sri_client import emitir_factura_ms, consultar_estado_ms
+from restaurante_app.restaurante_bmarc.api.plans import (
+    consume_authorized_voucher_for_document,
+    validate_company_can_authorize_voucher,
+)
 
 def _fmt_ms_errors(resp: dict) -> str:
     if not resp: return "Respuesta vacía"
@@ -19,6 +23,7 @@ def queue_einvoice_ms(invoice_name: str):
     Reemplazo del queue_einvoice anterior: arma payload y llama al microservicio.
     """
     inv = frappe.get_doc("Sales Invoice", invoice_name)
+    validate_company_can_authorize_voucher(inv.company_id, "direct_invoice")
 
     try:
         payload = build_invoice_payload_from_sales_invoice(inv.name)
@@ -36,6 +41,8 @@ def queue_einvoice_ms(invoice_name: str):
             inv.db_set("fecha_autorizacion", resp["authorization"].get("date"), update_modified=False)
         inv.db_set("einvoice_status", resp.get("status"), update_modified=False)
         inv.db_set("mensaje_sri", _fmt_ms_errors(resp), update_modified=False)
+        if str(resp.get("status") or "").upper() in {"AUTHORIZED", "AUTORIZADO"}:
+            consume_authorized_voucher_for_document(inv)
         frappe.db.commit()
 
     # devolver tal cual al front

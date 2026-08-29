@@ -22,6 +22,7 @@ from restaurante_app.facturacion_bmarc.api.open_factura_client import (
 from restaurante_app.facturacion_bmarc.einvoice.edocs import sri_estado_and_update_data
 from restaurante_app.restaurante_bmarc.api.user import get_user_company
 from restaurante_app.facturacion_bmarc.einvoice.utils import puede_facturar
+from restaurante_app.restaurante_bmarc.api.plans import validate_company_can_authorize_voucher
 
 
 def _to_decimal(v) -> Decimal:
@@ -415,6 +416,7 @@ def create_and_emit_from_ui_v2():
         frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
 
     company = frappe.get_doc("Company", company_name)
+    validate_company_can_authorize_voucher(company, "direct_invoice")
     customer = _fetch_customer_snapshot(customer_name)
     order_name = data.get("order_name") or None
 
@@ -521,6 +523,7 @@ def emit_credit_note_v2(invoice_name: str, motivo: str, additional_fields=None):
     # frappe.throw(_(puede_facturar(company_name)))
     if not puede_facturar(company_name):
         frappe.throw(_("No puede facturar, no tiene registrada la firma electronica"))
+    validate_company_can_authorize_voucher(company_name, "credit_note")
     
 
     if not invoice_name or not motivo:
